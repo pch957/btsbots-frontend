@@ -28,17 +28,19 @@ android {
 
     productFlavors {
         wallet {
-          dimension "mode"
+            dimension "mode"
             // 钱包的独立包名
             applicationId "com.btsbots.wallet"
             // 钱包的包名后缀（可选，如果是默认包名可以不加）
-            manifestPlaceholders = [appName: "BTSBots 钱包"]
+            resValue "string", "app_name", "BTSBots 钱包"
+            resValue "string", "title_activity_main", "Bots 钱包"
         }
         market {
-          dimension "mode"
+            dimension "mode"
             // 交易所的独立包名，核心！只要这个和上面不同，就是两个独立App
             applicationId "com.btsbots.market"
-            manifestPlaceholders = [appName: "BTSBots 交易所"]
+            resValue "string", "app_name", "BTSBots 交易所"
+            resValue "string", "title_activity_main", "Bots 交易"
         }
       }
 }

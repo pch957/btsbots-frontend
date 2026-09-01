@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-  <string name="app_name">${appName}</string>
-    <string name="title_activity_main">${appName}</string>
+  <string name="app_name">BTSBots</string>
+    <string name="title_activity_main">BtsBots</string>
     <string name="package_name">com.btsbots.wallet</string>
     <string name="custom_url_scheme">com.btsbots.wallet</string>
 </resources>
