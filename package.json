@@ -1,0 +1,43 @@
+{
+  "name": "btsbots-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "dev:wallet": "cross-env APP_MODE=wallet vite",
+    "dev:market": "cross-env APP_MODE=market vite",
+    "build:wallet": "cross-env APP_MODE=wallet tsc -b && cross-env APP_MODE=wallet vite build",
+    "build:market": "cross-env APP_MODE=market tsc -b && cross-env APP_MODE=market vite build"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "html5-qrcode": "^2.3.8",
+    "js-cookie": "^3.0.8",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3",
+    "simpleddp": "^2.2.4",
+    "simpleddp-plugin-login": "^4.0.2",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/js-cookie": "^3.0.6",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "cross-env": "^10.1.0",
+    "oxlint": "^1.79.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  }
+}

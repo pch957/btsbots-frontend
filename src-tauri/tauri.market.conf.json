@@ -1,0 +1,49 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "btsbots-market",
+  "mainBinaryName": "btsbots-market",
+  "version": "0.1.0",
+  "identifier": "com.btsbots.market", 
+  "build": {
+    "beforeDevCommand": "cross-env APP_MODE=market npm run dev",
+    "beforeBuildCommand": "cross-env APP_MODE=market npm run build",
+    "devUrl": "http://localhost:5174",
+    "frontendDist": "../dist-market" 
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "BtsBots Market",
+        "width": 800,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage", "msi", "nsis"], 
+    "windows": {
+      "wix": {
+        "language": ["zh-CN"]
+      },
+      "nsis": {
+        "languages": ["SimpChinese"]
+      }
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    }
+  }
+}

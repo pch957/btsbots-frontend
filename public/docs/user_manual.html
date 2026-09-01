@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTSBots 用户使用手册 / User Manual</title>
+  <style>
+    :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --text-dim: #94a3b8; --primary: #3b82f6; --border: #334155; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; margin: 0; padding: 20px; }
+    .container { max-width: 860px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 30px; }
+    h1, h2, h3 { color: #60a5fa; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+    pre, code { background: #090d16; color: #38bdf8; font-family: monospace; border-radius: 8px; padding: 2px 6px; }
+    pre { padding: 15px; overflow-x: auto; border: 1px solid var(--border); }
+    .lang-toggle { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
+    .btn { background: var(--primary); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; font-size: 13px; }
+    .btn:hover { background: #2563eb; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="lang-toggle">
+      <button class="btn" onclick="setLang('zh')">🇨🇳 中文版</button>
+      <button class="btn" onclick="setLang('en')">🇺🇸 English</button>
+      <a href="/" class="btn" style="background:#475569;">⬅ 返回 App</a>
+    </div>
+
+    <!-- 中文版 -->
+    <div id="lang-zh">
+      <h1>📖 BTSBots 用户使用手册</h1>
+      
+      <h2>1. 核心安全架构与防护体系</h2>
+      <p>BTSBots 采用<b>私钥不触网、零信任本地沙盒签名</b>的设计模式：</p>
+      <ul>
+        <li><b>前端 Web / 移动端</b>：只生成临时 WebCrypto 鉴权签名，不保存任何 BitShares 明文私钥。</li>
+        <li><b>本地签名守卫 (<code>sign_bots.py</code>)</b>：在独立沙盒进程中运行，每次签名后内存立即擦除。</li>
+        <li><b>IP 交叉核验</b>：比对请求端与执行端公网 IP，防止跨网钓鱼。</li>
+      </ul>
+
+      <h2>2. 推荐运行方式 (使用 uv 与 pass)</h2>
+      <pre><code># 1. 推荐使用 Unix pass 管理密码
+pass insert bts/myaccount
+
+# 2. 使用 uv 运行守护进程
+uv run sign_bots.py --pass bts/myaccount
+
+# 3. 获取 Web 登录 8 位 OTP 验证码
+uv run get_otp.py --pass bts/myaccount</code></pre>
+
+      <h2>3. 5分钟自动锁屏保护</h2>
+      <p>在【设置】中设定 4-6 位 PIN 码后，5 分钟无操作或切到后台自动锁定，保障设备资产安全。</p>
+    </div>
+
+    <!-- English Version -->
+    <div id="lang-en" class="hidden">
+      <h1>📖 BTSBots User Manual</h1>
+      
+      <h2>1. Security Architecture</h2>
+      <p>BTSBots adopts a <b>zero-trust, isolated local signing</b> architecture with sandboxed process execution, WebCrypto session keys, and anti-phishing IP verification.</p>
+
+      <h2>2. Running with `uv` and `pass`</h2>
+      <pre><code># 1. Manage keys securely with pass
+pass insert bts/myaccount
+
+# 2. Run daemon with uv
+uv run sign_bots.py --pass bts/myaccount
+
+# 3. Retrieve Web OTP
+uv run get_otp.py --pass bts/myaccount</code></pre>
+
+      <h2>3. 5-Minute Auto-Lock</h2>
+      <p>Setting a 4-6 digit local PIN locks your dashboard automatically after 5 minutes of inactivity or background sleep.</p>
+    </div>
+
+  </div>
+
+  <script>
+    function setLang(l) {
+      document.getElementById('lang-zh').classList.toggle('hidden', l !== 'zh');
+      document.getElementById('lang-en').classList.toggle('hidden', l !== 'en');
+    }
+  </script>
+</body>
+</html>

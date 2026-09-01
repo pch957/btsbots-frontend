@@ -1,0 +1,31 @@
+# === 1. Node/前端 依赖与打包产物 ===
+node_modules/
+/dist
+/dist-market
+/dist-wallet
+/dist-ssr
+*.local
+.env
+.env.*.local
+
+# === 2. 操作系统与编辑器垃圾文件 ===
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# === 4. Capacitor 7.x (安卓原生工程缓存) ===
+# 手机端编译产生的临时文件、证书和配置缓存
+*.keystore
+*.jks
+
+# === 5. 日志与调试文件 ===
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

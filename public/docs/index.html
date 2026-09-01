@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTSBots 文档中心 | Documentation Hub</title>
+  <style>
+    :root {
+      --bg: #07090e;
+      --card-bg: rgba(18, 24, 38, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover-border: rgba(59, 130, 246, 0.5);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+      color: var(--text-main);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 48px 24px;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* 顶部 Hero 区域 */
+    .hero {
+      text-align: center;
+      margin-bottom: 56px;
+      position: relative;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      color: #60a5fa;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      backdrop-filter: blur(8px);
+    }
+
+    .hero h1 {
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      margin: 0 0 16px 0;
+      background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 16px;
+      color: var(--text-sub);
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* 文档卡片网格 */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 28px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 32px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: transparent;
+      transition: background 0.3s;
+    }
+
+    .card-user::before { background: linear-gradient(90deg, #3b82f6, #06b6d4); }
+    .card-oauth::before { background: linear-gradient(90deg, #10b981, #059669); }
+    .card-pay::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+
+    .card:hover {
+      transform: translateY(-6px);
+      border-color: var(--card-hover-border);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .icon-user { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .icon-oauth { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .icon-pay { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+
+    .card h2 {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0 0 12px 0;
+      color: var(--text-main);
+    }
+
+    .card p {
+      font-size: 14px;
+      color: var(--text-sub);
+      line-height: 1.65;
+      margin: 0 0 28px 0;
+      flex: 1;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-primary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .footer {
+      text-align: center;
+      padding: 32px 24px;
+      border-top: 1px solid var(--card-border);
+      color: var(--text-sub);
+      font-size: 13px;
+    }
+
+    .footer a {
+      color: var(--accent-blue);
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Hero 头部 -->
+    <div class="hero">
+      <div class="badge">
+        <span>⚡</span> BTSBots Knowledge Base
+      </div>
+      <h1>开发与使用文档中心</h1>
+      <p>探索 BTSBots 去中心化零信任架构、密钥沙盒保护机制、OAuth DID 身份认证与链上支付接入指南。</p>
+    </div>
+
+    <!-- 网格卡片区域 -->
+    <div class="grid">
+      
+      <!-- 卡片 1: 用户手册 -->
+      <div class="card card-user">
+        <div>
+          <div class="card-icon icon-user">📖</div>
+          <h2>用户使用手册</h2>
+          <p>详解 Web 端无私钥架构、Python 进程沙盒、<code>pass</code> 密码管理器集成、8 位 OTP 登录与自动化风控策略配置。</p>
+        </div>
+        <div class="card-actions">
+          <a href="user_manual.html" class="btn btn-primary">🇨🇳 中文手册</a>
+          <a href="user_manual_en.html" class="btn btn-primary">🇺🇸 English</a>
+        </div>
+      </div>
+
+      <!-- 卡片 2: OAuth 开发手册 -->
+      <div class="card card-oauth">
+        <div>
+          <div class="card-icon icon-oauth">🔐</div>
+          <h2>OAuth 接入手册</h2>
+          <p>第三方商户接入去中心化身份 (DID) 验证指南。支持 <code>biz_proxy.py</code> 代理网关与自定义 Web API 椭圆曲线验签。</p>
+        </div>
+        <div class="card-actions">
+          <a href="oauth_guide.html" class="btn btn-primary">🇨🇳 中文手册</a>
+          <a href="oauth_guide_en.html" class="btn btn-primary">🇺🇸 English</a>
+        </div>
+      </div>
+
+      <!-- 卡片 3: Payment 开发手册 -->
+      <div class="card card-pay">
+        <div>
+          <div class="card-icon icon-pay">💳</div>
+          <h2>链上支付开发手册</h2>
+          <p>商户接入比特股区块链零手续费、秒级确认加密货币支付。包含带前缀 Memo 路由、<code>biz_rules.json</code> 配置与自动履约。</p>
+        </div>
+        <div class="card-actions">
+          <a href="payment_guide.html" class="btn btn-primary">🇨🇳 中文手册</a>
+          <a href="payment_guide_en.html" class="btn btn-primary">🇺🇸 English</a>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <p>BTSBots Decentralized Ecosystem &copy; 2026 | Open Source Repository: <a href="https://github.com/pch957/btsbots" target="_blank">pch957/btsbots</a></p>
+    <p style="margin-top: 8px;"><a href="../">➔ 返回 BTSBots Web 应用</a></p>
+  </div>
+
+</body>
+</html>
