@@ -45,6 +45,26 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
 
+  // 🌟 跨平台环境感知的智能文档打开逻辑 (兼容 Linux Tauri / Web / Mobile)
+  const handleOpenDocs = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuOpen(false);
+
+    const isTauriEnv = !!(
+      (window as any).__TAURI__ ||
+      (window as any).__TAURI_INTERNALS__ ||
+      navigator.userAgent.includes('Tauri')
+    );
+
+    if (isTauriEnv) {
+      // 桌面客户端内部切换 (解决 Linux WebKitGTK 拦截 target="_blank" 的问题)
+      window.location.href = '/docs/index.html';
+    } else {
+      // 浏览器环境新标签打开
+      window.open('/docs/index.html', '_blank');
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     setMenuOpen(false);
@@ -76,10 +96,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <NavLink to="/asset" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{t.asset}</NavLink>
                 <NavLink to={currentAccount ? `/user/${currentAccount}` : '/user/demo.btsbots'} className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{t.account}</NavLink>
                 <NavLink to="/pay" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{t.payView}</NavLink>
-                <a href="/docs/index.html" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition flex items-center gap-1 text-blue-500 font-bold">
+                <button onClick={handleOpenDocs} className="hover:text-blue-500 transition flex items-center gap-1 text-blue-500 font-bold cursor-pointer">
                   <span>📚</span>
                   <span>{t.docs}</span>
-                </a>
+                </button>
               </div>
             )}
 
@@ -89,10 +109,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <NavLink to="/" end className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>💰 {t.wallet}</NavLink>
                 <NavLink to="/pay" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>💸 {t.payView}</NavLink>
                 <NavLink to="/dividend" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>🎁 {t.dividend}</NavLink>
-                <a href="/docs/index.html" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition flex items-center gap-1 text-blue-500 font-bold">
+                <button onClick={handleOpenDocs} className="hover:text-blue-500 transition flex items-center gap-1 text-blue-500 font-bold cursor-pointer">
                   <span>📚</span>
                   <span>{t.docs}</span>
-                </a>
+                </button>
               </div>
             )}
           </div>
@@ -147,15 +167,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </Link>
 
                   {/* 📚 文档中心 */}
-                  <a
-                    href="/docs/index.html"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setMenuOpen(false)}
-                    className="block px-4 py-2.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 font-bold transition"
+                  <button
+                    onClick={handleOpenDocs}
+                    className="w-full text-left px-4 py-2.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 font-bold transition cursor-pointer"
                   >
                     📚 {t.docs}
-                  </a>
+                  </button>
 
                   {/* 语言选择 */}
                   <div className="flex justify-between items-center px-4 py-2.5 text-gray-700 dark:text-gray-300">
