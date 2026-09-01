@@ -20,27 +20,31 @@ case $choice in
     echo "🧱 正在编译钱包 Linux 桌面安装包..."
     npm run build:wallet
     npm exec tauri build
+    echo 编译完成: $(ls src-tauri/target/release/bundle/deb/*.deb)
     ;;
   2)
     echo "🧱 正在编译交易所 Linux 桌面安装包..."
     npm run build:market
     npm exec tauri build -- --config src-tauri/tauri.market.conf.json
+    echo 编译完成: $(ls src-tauri/target/release/bundle/deb/*.deb)
     ;;
   3)
     echo "📱 正在编译生成 [Wallet 钱包] Android APK..."
     npm run build:wallet
     # 强制将 Capacitor 切换同步为钱包专属配置
-    npx cap sync android --config capacitor.config.ts
-    cd android && ./gradlew assembleRelease
-    echo "✅ 钱包 APK 生成完毕: android/app/build/outputs/apk/release/"
+    ln -sf capacitor.wallet.config.ts capacitor.config.ts
+    npm exec cap sync android
+    cd android && ./gradlew clean assembleWalletRelease
+    echo 编译完成: $(ls android/app/build/outputs/apk/wallet/release/app-wallet-release.apk)
     ;;
   4)
     echo "📱 正在编译生成 [Market 交易所] Android APK..."
     npm run build:market
     # 强制将 Capacitor 切换同步为交易所专属配置
-    npx cap sync android --config capacitor.market.config.ts
-    cd android && ./gradlew assembleRelease
-    echo "✅ 交易所 APK 生成完毕: android/app/build/outputs/apk/release/"
+    ln -sf capacitor.market.config.ts capacitor.config.ts
+    npx cap sync android
+    cd android && ./gradlew clean assembleMarketRelease
+    echo 编译完成: $(ls android/app/build/outputs/apk/market/release/app-market-release.apk)
     ;;
   *)
     echo "❌ 暂不支持该编译选项。"
