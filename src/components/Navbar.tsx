@@ -68,16 +68,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </Link>
 
-            {/* PC 端导航链接 (Market App) - 🌟 未登录不显示转账 */}
+            {/* PC 端导航链接 (Market App) */}
             {appType === 'market' && (
               <div className="hidden md:flex items-center gap-5 text-xs font-bold text-gray-600 dark:text-gray-300">
                 <NavLink to="/" end className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{t.home}</NavLink>
                 <NavLink to="/market" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{t.trade}</NavLink>
                 <NavLink to="/asset" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{t.asset}</NavLink>
                 <NavLink to={currentAccount ? `/user/${currentAccount}` : '/user/demo.btsbots'} className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{t.account}</NavLink>
-                {isLoggedIn && (
-                  <NavLink to="/pay" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{t.payView}</NavLink>
-                )}
+                <NavLink to="/pay" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{t.payView}</NavLink>
+                <a href="/docs/index.html" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition flex items-center gap-1 text-blue-500 font-bold">
+                  <span>📚</span>
+                  <span>{t.docs}</span>
+                </a>
               </div>
             )}
 
@@ -87,6 +89,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <NavLink to="/" end className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>💰 {t.wallet}</NavLink>
                 <NavLink to="/pay" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>💸 {t.payView}</NavLink>
                 <NavLink to="/dividend" className={({ isActive }) => `hover:text-blue-500 transition ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>🎁 {t.dividend}</NavLink>
+                <a href="/docs/index.html" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition flex items-center gap-1 text-blue-500 font-bold">
+                  <span>📚</span>
+                  <span>{t.docs}</span>
+                </a>
               </div>
             )}
           </div>
@@ -139,6 +145,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                   >
                     ⚙️ {t.settings}
                   </Link>
+
+                  {/* 📚 文档中心 */}
+                  <a
+                    href="/docs/index.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-2.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 font-bold transition"
+                  >
+                    📚 {t.docs}
+                  </a>
 
                   {/* 语言选择 */}
                   <div className="flex justify-between items-center px-4 py-2.5 text-gray-700 dark:text-gray-300">
@@ -193,7 +210,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </nav>
 
-      {/* 手机端专用底部快捷导航栏 (Market App) - 🌟 未登录隐藏转账 */}
+      {/* 手机端专用底部快捷导航栏 (Market App) */}
       {appType === 'market' && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 flex justify-around py-2 px-1 text-[11px] font-bold">
           <NavLink to="/" end className={({ isActive }) => `flex flex-col items-center py-1 px-2 rounded-xl ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}>
@@ -212,12 +229,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>👤</span>
             <span>{t.account}</span>
           </NavLink>
-          {isLoggedIn && (
-            <NavLink to="/pay" className={({ isActive }) => `flex flex-col items-center py-1 px-2 rounded-xl ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}>
-              <span>💸</span>
-              <span>{t.payView}</span>
-            </NavLink>
-          )}
+          <NavLink to="/pay" className={({ isActive }) => `flex flex-col items-center py-1 px-2 rounded-xl ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}>
+            <span>💸</span>
+            <span>{t.payView}</span>
+          </NavLink>
         </div>
       )}
     </>

@@ -2,62 +2,237 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BTSBots 商户接入 OAuth 开发手册</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BTSBots OAuth 开发手册</title>
   <style>
-    :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --text-dim: #94a3b8; --primary: #3b82f6; --border: #334155; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; margin: 0; padding: 20px; }
-    .container { max-width: 860px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 30px; }
-    h1, h2, h3 { color: #60a5fa; }
-    h1 { border-bottom: 1px solid var(--border); padding-bottom: 15px; }
-    pre, code { background: #090d16; color: #38bdf8; font-family: monospace; border-radius: 8px; padding: 2px 6px; }
-    pre { padding: 15px; overflow-x: auto; border: 1px solid var(--border); }
-    .lang-toggle { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
-    .btn { background: var(--primary); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; font-size: 13px; }
-    .btn:hover { background: #2563eb; }
-    .hidden { display: none; }
+    :root {
+      --bg: #090d16; --card: #131c2e; --text: #f8fafc; --muted: #94a3b8;
+      --accent: #3b82f6; --accent-hover: #2563eb; --border: #1e293b; --code-bg: #060911;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg); color: var(--text); margin: 0; padding: 12px; line-height: 1.7;
+      word-wrap: break-word; overflow-wrap: break-word;
+    }
+    .container {
+      max-width: 960px; margin: 0 auto; background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 32px 24px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
+    }
+    .nav {
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
+      padding-bottom: 16px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+    }
+    .nav-btn {
+      display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 8px 14px; border-radius: 12px;
+      font-size: 13px; font-weight: bold; text-decoration: none; transition: background 0.2s;
+    }
+    .nav-btn:active { background: rgba(59, 130, 246, 0.3); }
+    h1 { font-size: 24px; color: #60a5fa; margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 10px; line-height: 1.3; }
+    h2 { font-size: 18px; color: #34d399; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 32px; }
+    h3 { font-size: 15px; color: #f59e0b; margin-top: 20px; }
+    p { color: #cbd5e1; font-size: 14.5px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: var(--code-bg); color: #38bdf8; padding: 2px 6px; border-radius: 6px; font-size: 13px; border: 1px solid #1e293b; }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border); padding: 14px 16px; border-radius: 14px;
+      overflow-x: auto; margin: 16px 0; -webkit-overflow-scrolling: touch;
+    }
+    pre code { background: none; padding: 0; color: #e2e8f0; border: none; font-size: 13px; white-space: pre; }
+    ul, ol { padding-left: 20px; color: #cbd5e1; font-size: 14px; }
+    li { margin-bottom: 8px; }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+
+    @media (max-width: 640px) {
+      body { padding: 8px; }
+      .container { padding: 20px 16px; border-radius: 16px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16.5px; }
+      h3 { font-size: 14.5px; }
+      p, li { font-size: 13.5px; }
+      .nav { flex-direction: column; align-items: stretch; gap: 8px; }
+      .nav-btn { justify-content: center; width: 100%; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="lang-toggle">
-      <button class="btn" onclick="setLang('zh')">🇨🇳 中文版</button>
-      <button class="btn" onclick="setLang('en')">🇺🇸 English</button>
-      <a href="/" class="btn" style="background:#475569;">⬅ 返回 App</a>
+    <div class="nav">
+      <a href="index.html" class="nav-btn">← 返回文档首页</a>
+      <a href="oauth_guide_en.html" class="nav-btn">English Version 🌐</a>
     </div>
 
-    <div id="lang-zh">
-      <h1>🔐 BTSBots 商户接入 OAuth 开发手册</h1>
-      <h2>1. 防护机制</h2>
-      <ul>
-        <li><b>客户端 IP 比对</b>：比对商户端与钱包端 IP，杜绝钓鱼。</li>
-        <li><b>5 分钟一次性挑战码</b>：Token 超时即作废。</li>
-        <li><b>链上公钥验证</b>：实时核验 Active 签名公钥。</li>
-      </ul>
-      <h2>2. 快速启动 (uv)</h2>
-      <pre><code>uv run biz_bots.py --pass bts/merchant_account
-uv run biz_proxy.py --host 0.0.0.0 --port 9000 merchant_account BTS_PUBKEY</code></pre>
-    </div>
+    <h1>🔐 BTSBots 去中心化身份 (DID) OAuth 接入开发手册</h1>
+    <p>本文档面向第三方商户开发者，介绍如何接入 <strong>BTSBots</strong> 去中心化身份验证服务。商户可以无需存储用户密码、无需发送短信验证码，直接利用比特股区块链上的账号与椭圆曲线密码学（ECDSA）签名证明用户身份。</p>
 
-    <div id="lang-en" class="hidden">
-      <h1>🔐 BTSBots Merchant OAuth Developer Guide</h1>
-      <h2>1. Protection Highlights</h2>
-      <ul>
-        <li>Dual IP address verification stops MitM attacks.</li>
-        <li>One-time 5-minute single-use challenge tokens.</li>
-        <li>On-chain public key cryptographic validation.</li>
-      </ul>
-      <h2>2. Quickstart (uv)</h2>
-      <pre><code>uv run biz_bots.py --pass bts/merchant_account
-uv run biz_proxy.py --host 0.0.0.0 --port 9000 merchant_account BTS_PUBKEY</code></pre>
-    </div>
-  </div>
+    <hr>
 
-  <script>
-    function setLang(l) {
-      document.getElementById('lang-zh').classList.toggle('hidden', l !== 'zh');
-      document.getElementById('lang-en').classList.toggle('hidden', l !== 'en');
+    <h2>⚙️ 一、OAuth 认证工作原理与流程</h2>
+    <pre><code>[ 用户浏览器 / PC ] ------ (1) 请求登录 / 展现二维码 -------> [ 商户 Web 网站 ]
+        |                                                              |
+ (2) 跳转至 OAuth                                                (3) 轮询登录状态
+     或 手机 App 扫码                                                   |
+        v                                                              v
+[ BTSBots 客户端/Web ] -- (4) 用 WebCrypto 签署意图 --> [ BTSBots DDP 核心服务器 ]
+                                                                       |
+ (5) 抓取并校验签名                                                    v
+[ 商户 BizBots 机器人 ] <------- (6) HTTP POST 推送签名证明 --------+</code></pre>
+
+    <ol>
+      <li>用户点击商户网站上的“比特股账号登录”按钮，或展示登录二维码。</li>
+      <li>商户为本次登录生成一个临时挑战码 <code>token</code>（UUID），并将用户重定向至认证网关。</li>
+      <li>用户在 BTSBots App / 浏览器完成签名授权。</li>
+      <li>BTSBots 核心服务器将验证合格的身份凭证分发至商户的回调接口，商户完成会话颁发。</li>
+    </ol>
+
+    <hr>
+
+    <h2>🛠️ 二、接入方案 A：使用 biz_proxy.py 零代码代理模式（推荐）</h2>
+
+    <h3>1. 必须配置 biz_rules.json 回调路由</h3>
+    <p><strong>重要</strong>：启用 <code>biz_proxy</code> 方案时，依然必须在 <code>biz_bots.py</code> 同级目录下的 <code>biz_rules.json</code> 中配置路由，<strong>将 <code>oauth_endpoint</code> 回调地址直接指向 <code>biz_proxy</code> 提供的同步接口 <code>/biz-proxy/sync-login</code></strong>：</p>
+
+    <pre><code>{
+  "description": "BTSBots 登录与支付调用规则",
+  "updated_at": "2026-08-12 19:54:52",
+  "oauth_endpoint": {
+    "my-shop.com": "https://my-shop.com/biz-proxy/sync-login"
+  }
+}</code></pre>
+
+    <h3>2. 启动 biz_proxy.py 代理</h3>
+    <pre><code>uv run python biz_proxy.py \
+  --host 127.0.0.1 \
+  --port 9000 \
+  &lt;商户比特股账号&gt; \
+  &lt;商户比特股公钥&gt;</code></pre>
+
+    <h3>3. Nginx 反向代理配置示例</h3>
+    <pre><code>server {
+    listen 443 ssl;
+    server_name my-shop.com;
+
+    location / {
+        auth_request /biz-internal/check-login;
+        error_page 401 = @go_to_login;
+        
+        auth_request_set $bts_user $upstream_http_x_user;
+        proxy_set_header X-BTS-User $bts_user;
+        
+        proxy_pass http://127.0.0.1:8080;
     }
-  </script>
+
+    location @go_to_login {
+        return 302 https://my-shop.com/biz-proxy/login?redirect=$scheme://$http_host$request_uri;
+    }
+
+    location /biz-internal/check-login {
+        internal;
+        proxy_pass http://127.0.0.1:9000/biz-internel/check-login;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header X-App-Id "my-shop.com";
+        proxy_set_header X-Session-ID $cookie_bts_session;
+    }
+
+    location /biz-proxy/ {
+        proxy_pass http://127.0.0.1:9000/biz-proxy/;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+}</code></pre>
+
+    <hr>
+
+    <h2>💻 三、接入方案 B：商户自主实现 Web API 回调接口</h2>
+
+    <h3>1. 配置 biz_rules.json 映射规则</h3>
+    <pre><code>{
+  "description": "商户应用 OAuth 规则",
+  "updated_at": "2026-08-12 20:00:00",
+  "oauth_endpoint": {
+    "my-shop.com": "https://api.my-shop.com/v1/auth/bts-callback"
+  }
+}</code></pre>
+
+    <h3>2. 回调接口 Body Payload 格式</h3>
+    <pre><code>{
+  "data": "{\"username\":\"alice\",\"site\":\"my-shop.com\",\"ip\":\"203.0.113.195\",\"token\":\"550e8400-e29b-41d4-a716-446655440000\",\"time\":1770800000}",
+  "pubkey": "BTS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+  "signature": "1f3a2b..."
+}</code></pre>
+
+    <h3>3. 商户后端验签实现示例 (Python / FastAPI)</h3>
+    <pre><code>import json
+import time
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from btsbots.graphene_light import verify_message as bts_verify_message
+
+app = FastAPI()
+
+TRUSTED_BIZ_BOT_PUBKEY = "BTS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+
+class OAuthCallbackPayload(BaseModel):
+    data: str
+    pubkey: str
+    signature: str
+
+@app.post("/v1/auth/bts-callback")
+async def bts_oauth_callback(payload: OAuthCallbackPayload):
+    if payload.pubkey != TRUSTED_BIZ_BOT_PUBKEY:
+        raise HTTPException(status_code=403, detail="不受信任的签名来源")
+
+    is_valid = bts_verify_message(payload.data, payload.signature, payload.pubkey)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="签名凭证伪造或无效")
+
+    auth_info = json.loads(payload.data)
+    username = auth_info.get("username")
+    token = auth_info.get("token")
+    auth_time = auth_info.get("time")
+
+    if abs(time.time() - auth_time) > 300:
+        raise HTTPException(status_code=400, detail="授权请求已过期")
+
+    print(f"🎉 用户 {username} 成功通过比特股身份凭证登录！Token: {token}")
+
+    return {"status": "success", "username": username}</code></pre>
+
+    <h3>4. 商户后端验签实现示例 (Node.js / Express)</h3>
+    <pre><code>const express = require('express');
+const { Signature, PublicKey } = require('bitsharesjs');
+
+const app = express();
+app.use(express.json());
+
+const TRUSTED_PUBKEY = 'BTS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV';
+
+app.post('/v1/auth/bts-callback', (req, res) => {
+  const { data, pubkey, signature } = req.body;
+
+  if (pubkey !== TRUSTED_PUBKEY) {
+    return res.status(403).json({ error: 'Untrusted public key' });
+  }
+
+  try {
+    const pubKeyObj = PublicKey.fromPublicKeyString(pubkey);
+    const sigObj = Signature.fromHex(signature);
+    
+    const isValid = sigObj.verifyBuffer(Buffer.from(data, 'utf8'), pubKeyObj);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid cryptographic signature' });
+    }
+
+    const authInfo = JSON.parse(data);
+    console.log(`✅ [OAuth Verified] User ${authInfo.username} authenticated!`);
+
+    return res.json({ status: 'ok', user: authInfo.username });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+app.listen(3000, () => console.log('Merchant auth callback listener on :3000'));</code></pre>
+  </div>
 </body>
 </html>

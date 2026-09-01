@@ -2,84 +2,186 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BTSBots 用户使用手册 / User Manual</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BTSBots 用户使用手册</title>
   <style>
-    :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --text-dim: #94a3b8; --primary: #3b82f6; --border: #334155; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; margin: 0; padding: 20px; }
-    .container { max-width: 860px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 30px; }
-    h1, h2, h3 { color: #60a5fa; }
-    h1 { border-bottom: 1px solid var(--border); padding-bottom: 15px; }
-    pre, code { background: #090d16; color: #38bdf8; font-family: monospace; border-radius: 8px; padding: 2px 6px; }
-    pre { padding: 15px; overflow-x: auto; border: 1px solid var(--border); }
-    .lang-toggle { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
-    .btn { background: var(--primary); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; font-size: 13px; }
-    .btn:hover { background: #2563eb; }
-    .hidden { display: none; }
+    :root {
+      --bg: #090d16; --card: #131c2e; --text: #f8fafc; --muted: #94a3b8;
+      --accent: #3b82f6; --accent-hover: #2563eb; --border: #1e293b; --code-bg: #060911;
+      --emerald: #10b981; --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg); color: var(--text); margin: 0; padding: 12px; line-height: 1.7;
+      word-wrap: break-word; overflow-wrap: break-word;
+    }
+    .container {
+      max-width: 960px; margin: 0 auto; background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 32px 24px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
+    }
+    .nav {
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
+      padding-bottom: 16px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+    }
+    .nav-btn {
+      display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 8px 14px; border-radius: 12px;
+      font-size: 13px; font-weight: bold; text-decoration: none; transition: background 0.2s;
+    }
+    .nav-btn:active { background: rgba(59, 130, 246, 0.3); }
+    h1 { font-size: 24px; color: #60a5fa; margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 10px; line-height: 1.3; }
+    h2 { font-size: 18px; color: #34d399; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 32px; }
+    h3 { font-size: 15px; color: #f59e0b; margin-top: 20px; }
+    p { color: #cbd5e1; font-size: 14.5px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: var(--code-bg); color: #38bdf8; padding: 2px 6px; border-radius: 6px; font-size: 13px; border: 1px solid #1e293b; }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border); padding: 14px 16px; border-radius: 14px;
+      overflow-x: auto; margin: 16px 0; -webkit-overflow-scrolling: touch;
+    }
+    pre code { background: none; padding: 0; color: #e2e8f0; border: none; font-size: 13px; white-space: pre; }
+    ul, ol { padding-left: 20px; color: #cbd5e1; font-size: 14px; }
+    li { margin-bottom: 8px; }
+    blockquote { border-left: 3px solid var(--accent); margin: 16px 0; padding: 10px 14px; background: rgba(59, 130, 246, 0.05); color: #94a3b8; font-size: 13.5px; border-radius: 0 10px 10px 0; }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+
+    @media (max-width: 640px) {
+      body { padding: 8px; }
+      .container { padding: 20px 16px; border-radius: 16px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16.5px; }
+      h3 { font-size: 14.5px; }
+      p, li { font-size: 13.5px; }
+      .nav { flex-direction: column; align-items: stretch; gap: 8px; }
+      .nav-btn { justify-content: center; width: 100%; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="lang-toggle">
-      <button class="btn" onclick="setLang('zh')">🇨🇳 中文版</button>
-      <button class="btn" onclick="setLang('en')">🇺🇸 English</button>
-      <a href="/" class="btn" style="background:#475569;">⬅ 返回 App</a>
+    <div class="nav">
+      <a href="index.html" class="nav-btn">← 返回文档首页</a>
+      <a href="user_manual_en.html" class="nav-btn">English Version 🌐</a>
     </div>
 
-    <!-- 中文版 -->
-    <div id="lang-zh">
-      <h1>📖 BTSBots 用户使用手册</h1>
-      
-      <h2>1. 核心安全架构与防护体系</h2>
-      <p>BTSBots 采用<b>私钥不触网、零信任本地沙盒签名</b>的设计模式：</p>
-      <ul>
-        <li><b>前端 Web / 移动端</b>：只生成临时 WebCrypto 鉴权签名，不保存任何 BitShares 明文私钥。</li>
-        <li><b>本地签名守卫 (<code>sign_bots.py</code>)</b>：在独立沙盒进程中运行，每次签名后内存立即擦除。</li>
-        <li><b>IP 交叉核验</b>：比对请求端与执行端公网 IP，防止跨网钓鱼。</li>
-      </ul>
+    <h1>🤖 BTSBots 智能钱包与去中心化客户端 - 用户使用手册</h1>
+    <p>欢迎使用 <strong>BTSBots</strong> 生态系统！BTSBots 是基于比特股（BitShares）区块链打造的去中心化交易与智能钱包系统。它采用了<strong>零信任架构（Zero-Trust Architecture）</strong>，兼顾了 Web 端极致流畅的用户体验与冷热分离级的密钥安全保护。</p>
 
-      <h2>2. 推荐运行方式 (使用 uv 与 pass)</h2>
-      <pre><code># 1. 推荐使用 Unix pass 管理密码
-pass insert bts/myaccount
+    <hr>
 
-# 2. 使用 uv 运行守护进程
-uv run sign_bots.py --pass bts/myaccount
+    <h2>🛡️ 一、硬核安全防护机制详解</h2>
+    <p>BTSBots 从架构设计层面彻底解决了传统 Web3 钱包易受钓鱼、私钥泄漏、恶意刷单和误操作等安全隐患：</p>
 
-# 3. 获取 Web 登录 8 位 OTP 验证码
-uv run get_otp.py --pass bts/myaccount</code></pre>
+    <h3>1. Web 前端无私钥 (Zero-Key Web Architecture)</h3>
+    <ul>
+      <li><strong>浏览器不接触 WIF 私钥</strong>：您的比特股 Active/Owner 物理私钥永远无需输入或存储在浏览器/手机 App 的 LocalStorage 中。</li>
+      <li><strong>本地 WebCrypto 会话签名</strong>：Web 端在初始化时通过浏览器原生 <code>window.crypto.subtle</code> API 在 IndexedDB 中生成并锁定一对专用的 ECDSA (P-256) 临时会话公私钥。Web 端提交的所有交易（转账、限价下单、OAuth 授权）仅包含<strong>操作意图签名</strong>，必须经过您的 Python 客户端或本地代理二次审核放行。</li>
+    </ul>
 
-      <h2>3. 5分钟自动锁屏保护</h2>
-      <p>在【设置】中设定 4-6 位 PIN 码后，5 分钟无操作或切到后台自动锁定，保障设备资产安全。</p>
-    </div>
+    <h3>2. Python 客户端内存级私钥沙盒保护 (bots_key.py)</h3>
+    <ul>
+      <li><strong>AES 动态密文常驻内存</strong>：主进程运行时，物理 WIF 私钥在内存中以 AES-256 密文形态存在，不写磁盘。</li>
+      <li><strong>Unix Fork 独立沙盒</strong>：每当需要进行链上交易加签或 Memo 解密时，系统通过 <code>multiprocessing</code> 的 <code>fork</code> 机制创建孤立的子进程。</li>
+      <li><strong>零内存残留擦除</strong>：子进程在隔离内存中解密 WIF、完成 ECDSA 密码学计算后，<strong>自动用 0x00 覆写擦除字节缓冲区并立即销毁进程</strong>，杜绝第三方 Python 依赖库窥探内存。</li>
+    </ul>
 
-    <!-- English Version -->
-    <div id="lang-en" class="hidden">
-      <h1>📖 BTSBots User Manual</h1>
-      
-      <h2>1. Security Architecture</h2>
-      <p>BTSBots adopts a <b>zero-trust, isolated local signing</b> architecture with sandboxed process execution, WebCrypto session keys, and anti-phishing IP verification.</p>
+    <h3>3. 反钓鱼与异地 IP 双向核对</h3>
+    <ul>
+      <li>在发起第三方 OAuth 授权登录或扫码支付时，系统会记录并锁定 Web 发起端的公网 IP。</li>
+      <li>Python 客户端在收到授权请求时，会强制核对发起端 IP 与后端响应 IP 是否完全一致。若检测到异地/代理劫持，将自动拦截并报警，防止钓鱼网站套取您的身份证书。</li>
+    </ul>
 
-      <h2>2. Running with `uv` and `pass`</h2>
-      <pre><code># 1. Manage keys securely with pass
-pass insert bts/myaccount
+    <h3>4. 自动化风控与策略防线 (security_rules.json)</h3>
+    <ul>
+      <li><strong>手续费上限限制 (fee_limit)</strong>：单笔交易手续费若超过设定阈值（如 10 BTS），签名守护进程自动拒绝。</li>
+      <li><strong>转账与市场白名单</strong>：仅允许向白名单内的账户转账；限价下单仅允许在许可的交易对中操作。</li>
+      <li><strong>滑动时间窗口套利保护 (volatility_limit_1h/1d/1w)</strong>：系统内置多时区几何偏离计算。若某一笔限价单的价格严重偏离该账号近期历史成交均价（可能由恶意刷单脚本触发），Python 签名端将拒绝签署私钥，保护您的资产不被低卖高买窃取。</li>
+    </ul>
 
-# 2. Run daemon with uv
-uv run sign_bots.py --pass bts/myaccount
+    <h3>5. 客户端本地安全锁屏与黑白名单</h3>
+    <ul>
+      <li><strong>独立 PIN 码保护</strong>：在前端设置独立的 4-6 位数字 PIN 码（完全保存在本地，不经过网络），用于每次关键签名放行前验证或 5 分钟无操作自动锁屏。</li>
+      <li><strong>账号与资产黑名单</strong>：被拉黑的恶意账号转账记录将被自动屏蔽；被拉黑的垃圾代币将从钱包资产面板中彻底隐藏。</li>
+    </ul>
 
-# 3. Retrieve Web OTP
-uv run get_otp.py --pass bts/myaccount</code></pre>
+    <hr>
 
-      <h2>3. 5-Minute Auto-Lock</h2>
-      <p>Setting a 4-6 digit local PIN locks your dashboard automatically after 5 minutes of inactivity or background sleep.</p>
-    </div>
+    <h2>🚀 二、环境准备与极速安装</h2>
+    <p>BTSBots Python 客户端全面推荐使用现代化的 Python 包管理器 <strong><code>uv</code></strong> 运行，享受秒级依赖安装与隔离运行环境。</p>
 
+    <h3>1. 安装 uv 工具</h3>
+    <pre><code># Linux / macOS
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell)
+powershell -ExecutionUrl https://astral.sh/uv/install.ps1</code></pre>
+
+    <h3>2. 克隆项目并初始化依赖</h3>
+    <pre><code>git clone https://github.com/pch957/btsbots.git
+cd btsbots
+
+# 使用 uv 一键安装依赖并同步环境
+uv sync</code></pre>
+
+    <h3>3. 配置风控策略 security_rules.json</h3>
+    <p>复制示例文件并编辑：</p>
+    <pre><code>cp security_rules.json.example security_rules.json</code></pre>
+    <p><code>security_rules.json</code> 内容说明：</p>
+    <pre><code>{ 
+    "description": "BTSBots 账号与资产定价风控策略",
+    "updated_at": "2026-08-12 19:54:52",
+    "fee_limit": 10,
+    "authorized_keys": [
+        "f928a9f76a372caf489e999b5e2c4eec9fcablbj49bcef9b4a"
+    ],
+    "user_whitelist": {
+        "angel": "1.2.1000",
+        "dan": "1.2.2000"
+    },
+    "market_whitelist": [
+        "CNY/USD", "CNY/BTS", "BTS/USD"
+    ],
+    "volatility_limit_1h": 0.97,
+    "volatility_limit_1d": 0.95,
+    "volatility_limit_1w": 0.90
+}</code></pre>
+    <ul>
+      <li><strong>authorized_keys</strong>：允许请求您签名机的 WebCrypto 浏览器公钥特征指纹（前 50 位 SHA-256 哈希）。</li>
+      <li><strong>user_whitelist</strong>：允许转账的比特股账号及其对应的 1.2.x 账号 ID。</li>
+    </ul>
+
+    <hr>
+
+    <h2>🔑 三、启动 Python 客户端与密钥管理</h2>
+
+    <h3>方式 1：标准交互式启动（无参数）</h3>
+    <pre><code>uv run python sign_bots.py</code></pre>
+
+    <h3>方式 2：使用 pass 密码管理器（推荐方案 🌟）</h3>
+    <pre><code># 1. 在 pass 中录入您的凭证条目
+pass insert bts/my_account
+
+# 2. 使用 --pass 参数一键优雅启动 SignBots
+uv run python sign_bots.py --pass bts/my_account</code></pre>
+
+    <hr>
+
+    <h2>📱 四、Web 端与 Mobile App 配合使用指南</h2>
+
+    <h3>1. 8 位 OTP 免私钥快速登录</h3>
+    <ol>
+      <li>运行 <code>get_otp.py</code> 脚本：
+        <pre><code>uv run python get_otp.py --pass bts/my_account</code></pre>
+      </li>
+      <li>终端将输出一个 8 位数字一次性验证码（OTP），例如：<code>84920138</code>。</li>
+      <li>在网页端登录界面输入您的比特股账号与该 8 位 OTP 即可登录！</li>
+    </ol>
+
+    <h3>2. 扫码支付与二元协议</h3>
+    <ul>
+      <li><strong>转账协议</strong>：<code>btsbots://transfer?to=receiver&amp;asset=BTS&amp;amount=100&amp;memo=inv_001</code></li>
+      <li><strong>OAuth 授权</strong>：<code>btsbots://oauth?client_id=merchant&amp;token=xxx&amp;site=example.com&amp;ip=1.2.3.4</code></li>
+    </ul>
   </div>
-
-  <script>
-    function setLang(l) {
-      document.getElementById('lang-zh').classList.toggle('hidden', l !== 'zh');
-      document.getElementById('lang-en').classList.toggle('hidden', l !== 'en');
-    }
-  </script>
 </body>
 </html>

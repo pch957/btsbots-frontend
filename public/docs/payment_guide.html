@@ -2,59 +2,193 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BTSBots 商户接入 Payment 支付开发手册</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BTSBots 链上支付开发手册</title>
   <style>
-    :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --text-dim: #94a3b8; --primary: #3b82f6; --border: #334155; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; margin: 0; padding: 20px; }
-    .container { max-width: 860px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 30px; }
-    h1, h2, h3 { color: #60a5fa; }
-    h1 { border-bottom: 1px solid var(--border); padding-bottom: 15px; }
-    pre, code { background: #090d16; color: #38bdf8; font-family: monospace; border-radius: 8px; padding: 2px 6px; }
-    pre { padding: 15px; overflow-x: auto; border: 1px solid var(--border); }
-    .lang-toggle { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
-    .btn { background: var(--primary); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; font-size: 13px; }
-    .btn:hover { background: #2563eb; }
-    .hidden { display: none; }
+    :root {
+      --bg: #090d16; --card: #131c2e; --text: #f8fafc; --muted: #94a3b8;
+      --accent: #3b82f6; --accent-hover: #2563eb; --border: #1e293b; --code-bg: #060911;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg); color: var(--text); margin: 0; padding: 12px; line-height: 1.7;
+      word-wrap: break-word; overflow-wrap: break-word;
+    }
+    .container {
+      max-width: 960px; margin: 0 auto; background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 32px 24px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
+    }
+    .nav {
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
+      padding-bottom: 16px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+    }
+    .nav-btn {
+      display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 8px 14px; border-radius: 12px;
+      font-size: 13px; font-weight: bold; text-decoration: none; transition: background 0.2s;
+    }
+    .nav-btn:active { background: rgba(59, 130, 246, 0.3); }
+    h1 { font-size: 24px; color: #60a5fa; margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 10px; line-height: 1.3; }
+    h2 { font-size: 18px; color: #34d399; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 32px; }
+    h3 { font-size: 15px; color: #f59e0b; margin-top: 20px; }
+    p { color: #cbd5e1; font-size: 14.5px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: var(--code-bg); color: #38bdf8; padding: 2px 6px; border-radius: 6px; font-size: 13px; border: 1px solid #1e293b; }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border); padding: 14px 16px; border-radius: 14px;
+      overflow-x: auto; margin: 16px 0; -webkit-overflow-scrolling: touch;
+    }
+    pre code { background: none; padding: 0; color: #e2e8f0; border: none; font-size: 13px; white-space: pre; }
+    ul, ol { padding-left: 20px; color: #cbd5e1; font-size: 14px; }
+    li { margin-bottom: 8px; }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+
+    @media (max-width: 640px) {
+      body { padding: 8px; }
+      .container { padding: 20px 16px; border-radius: 16px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16.5px; }
+      h3 { font-size: 14.5px; }
+      p, li { font-size: 13.5px; }
+      .nav { flex-direction: column; align-items: stretch; gap: 8px; }
+      .nav-btn { justify-content: center; width: 100%; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="lang-toggle">
-      <button class="btn" onclick="setLang('zh')">🇨🇳 中文版</button>
-      <button class="btn" onclick="setLang('en')">🇺🇸 English</button>
-      <a href="/" class="btn" style="background:#475569;">⬅ 返回 App</a>
+    <div class="nav">
+      <a href="index.html" class="nav-btn">← 返回文档首页</a>
+      <a href="payment_guide_en.html" class="nav-btn">English Version 🌐</a>
     </div>
 
-    <div id="lang-zh">
-      <h1>💳 BTSBots 商户接入 Payment 支付开发手册</h1>
-      <h2>1. 收款 URI 规范</h2>
-      <pre><code>btsbots://transfer?to=MERCHANT_ACCOUNT&asset=CNY&amount=99.00&memo=exa_order_123456&goods=VIP_Annual</code></pre>
-      <h2>2. Webhook 回调通知</h2>
-      <pre><code>{
-  "type": "payment",
-  "time": 1788056625,
-  "order_id": "exa_order_123456",
-  "tx_id": 1395510620,
-  "amount": 99.0,
-  "asset": "CNY"
+    <h1>💳 BTSBots 链上即时支付接入开发手册</h1>
+    <p>本文档指导第三方商户（如电商、数字订阅、GameFi 等）如何基于 <strong>BitShares（比特股）区块链</strong> 接入零手续费、秒级确认的加密货币支付。</p>
+
+    <hr>
+
+    <h2>💡 一、链上支付架构与工作原理</h2>
+    <pre><code>[ 买家/用户 ] ---- (1) 在商户提交订单 ----> [ 商户网站 ]
+     |                                          | (2) 生成带前缀的订单号 (Memo)
+     |                                          v
+     +---- (3) 发起链上转账 (附加 Memo) ----> [ 比特股区块链 (BitShares) ]
+                                                        |
+                                                        v (实时 WebSocket 推送)
+[ 商户系统 ] &lt;--- (5) HTTP POST 回调通知 --- [ 商户 BizBots 监听节点 ]</code></pre>
+
+    <ol>
+      <li><strong>订单生成</strong>：商户生成带特定前缀的订单标识，例如 <code>exa_order_883921</code>。</li>
+      <li><strong>扫码/发起转账</strong>：用户使用 BTSBots Wallet App 扫描付款码，发起转账。</li>
+      <li><strong>链上监听与解密</strong>：商户的 <code>biz_bots.py</code> 监听链上转账事件，自动解密链上 Memo。</li>
+      <li><strong>即时放行</strong>：<code>biz_bots.py</code> 校验金额与资产无误后，向商户服务器发起强签名回调，自动完成履约交付。</li>
+    </ol>
+
+    <hr>
+
+    <h2>⚙️ 二、配置 biz_rules.json 规则映射</h2>
+    <pre><code>{
+  "description": "商户支付监听路由配置",
+  "updated_at": "2026-08-12 20:00:00",
+  "pay_endpoint": {
+    "exa_": "https://api.my-shop.com/v1/payment/checkout-notify",
+    "sub_": "https://api.my-shop.com/v1/payment/subscription-notify"
+  }
 }</code></pre>
-    </div>
 
-    <div id="lang-en" class="hidden">
-      <h1>💳 BTSBots Merchant Payment Developer Guide</h1>
-      <h2>1. Payment URI Scheme</h2>
-      <pre><code>btsbots://transfer?to=MERCHANT&asset=CNY&amount=99.00&memo=exa_123456&goods=VIP_Annual</code></pre>
-      <h2>2. Handling Webhooks</h2>
-      <p>Your backend receives signed payloads with order IDs and cryptographic receipts upon block generation.</p>
-    </div>
-  </div>
+    <hr>
 
-  <script>
-    function setLang(l) {
-      document.getElementById('lang-zh').classList.toggle('hidden', l !== 'zh');
-      document.getElementById('lang-en').classList.toggle('hidden', l !== 'en');
+    <h2>🛠️ 三、方案 A：使用 biz_proxy.py 本地代理</h2>
+    <p>如果商户希望通过内网 API 直接查询订单支付状态，可利用 <code>biz_proxy.py</code> 自带的数据库和状态 API：</p>
+    <ul>
+      <li><strong>请求方式</strong>：<code>GET /biz-internel/check-payment?order_id=exa_2026081299&amp;app_id=my-shop.com</code></li>
+    </ul>
+
+    <hr>
+
+    <h2>💻 四、方案 B：商户自主实现 Payment 回调 API</h2>
+
+    <h3>1. 回调 HTTP Payload 规范</h3>
+    <pre><code>{
+  "data": "{\"type\":\"payment\",\"time\":1770800000,\"order_id\":\"exa_2026081299\",\"tx_id\":1849201,\"amount\":150.0,\"asset\":\"CNY\"}",
+  "pubkey": "BTS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+  "signature": "204b1a..."
+}</code></pre>
+
+    <h3>2. 商户回调 API 实现 (Python / FastAPI)</h3>
+    <pre><code>import json
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from btsbots.graphene_light import verify_message as bts_verify_message
+
+app = FastAPI()
+
+TRUSTED_BOT_PUBKEY = "BTS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+
+class PaymentCallbackPayload(BaseModel):
+    data: str
+    pubkey: str
+    signature: str
+
+@app.post("/v1/payment/checkout-notify")
+async def handle_payment_notification(payload: PaymentCallbackPayload):
+    if payload.pubkey != TRUSTED_BOT_PUBKEY:
+        raise HTTPException(status_code=403, detail="非法通知源")
+
+    if not bts_verify_message(payload.data, payload.signature, payload.pubkey):
+        raise HTTPException(status_code=400, detail="支付签名验证错误")
+
+    pay_data = json.loads(payload.data)
+    order_id = pay_data.get("order_id")
+    tx_id = pay_data.get("tx_id")
+    amount = float(pay_data.get("amount"))
+    asset = pay_data.get("asset")
+
+    print(f"💰 [收到付款]: 订单号 {order_id} | 链上TX: {tx_id} | 金额: {amount} {asset}")
+
+    return {"status": "ok"}</code></pre>
+
+    <h3>3. 商户回调 API 实现 (Node.js / Express)</h3>
+    <pre><code>const express = require('express');
+const { Signature, PublicKey } = require('bitsharesjs');
+
+const app = express();
+app.use(express.json());
+
+const TRUSTED_BOT_PUBKEY = 'BTS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV';
+
+app.post('/v1/payment/checkout-notify', (req, res) => {
+  const { data, pubkey, signature } = req.body;
+
+  if (pubkey !== TRUSTED_BOT_PUBKEY) {
+    return res.status(403).json({ error: 'Untrusted notification source' });
+  }
+
+  try {
+    const pubKeyObj = PublicKey.fromPublicKeyString(pubkey);
+    const sigObj = Signature.fromHex(signature);
+    
+    const isValid = sigObj.verifyBuffer(Buffer.from(data, 'utf8'), pubKeyObj);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid payment signature' });
     }
-  </script>
+
+    const payData = JSON.parse(data);
+    const { order_id, tx_id, amount, asset } = payData;
+
+    console.log(`🎉 [Payment Verified] Order ${order_id} received ${amount} ${asset} (TX: ${tx_id})`);
+
+    return res.json({ status: 'ok' });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+app.listen(3001, () => console.log('Payment notification listener running on :3001'));</code></pre>
+
+    <hr>
+
+    <h2>🔗 五、生成标准支付二维码协议</h2>
+    <pre><code>btsbots://transfer?to=merchant_account&amp;asset=CNY&amp;amount=150&amp;memo=exa_2026081299&amp;goods=VIP%20Annual%20Subscription</code></pre>
+  </div>
 </body>
 </html>

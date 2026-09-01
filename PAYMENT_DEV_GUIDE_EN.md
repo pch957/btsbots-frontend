@@ -1,35 +1,35 @@
-# 💳 BTSBots On-Chain Instant Payment Integration Guide
+# 💳 BTSBots On-Chain Instant Payment Integration Developer Guide
 
-This document guides third-party merchants (e-commerce, digital subscriptions, GameFi) on integrating zero-fee, instant crypto payments on the BitShares blockchain via **BTSBots**.
+This document guides third-party merchants (e-commerce, digital subscriptions, GameFi, etc.) on how to integrate zero-fee, instant crypto payments on the **BitShares blockchain** via **BTSBots**.
 
 ---
 
 ## 💡 1. Payment Architecture & Workflow
 
 ```
-[ Buyer / User ] ---- (1) Submit Order ----> [ Merchant Web ]
-     |                                             | (2) Generate Prefixed Memo
-     |                                             v
-     +---- (3) Send On-Chain Transfer (Memo) ---> [ BitShares Blockchain ]
-                                                        |
-                                                        v (WebSocket Stream)
-[ Merchant System ] <--- (5) HTTP Notification --- [ BizBots Listener ]
+[ Buyer / User ] ---- (1) Submit Order on Merchant Web ----> [ Merchant Web ]
+     |                                                           | (2) Generate Prefixed Memo
+     |                                                           v
+     +---- (3) Send On-Chain Transfer (Memo) ----> [ BitShares Blockchain ]
+                                                         |
+                                                         v (WebSocket Stream)
+[ Merchant System ] <--- (5) HTTP POST Callback Notification --- [ BizBots Daemon ]
 ```
 
-1. **Order Generation**: Merchant generates an order ID with a designated prefix (e.g., `exa_order_883921`).
-2. **Transfer**: The buyer scans the payment QR code and executes the transfer using the BTSBots App.
-3. **On-Chain Monitoring & Decryption**: `biz_bots.py` listens for incoming transfers, decrypting on-chain memos in real-time.
-4. **Fulfillment**: `biz_bots.py` verifies amounts and assets, notifying the merchant API via signed POST callbacks for automated fulfillment.
+1. **Order Generation**: The merchant generates an order ID with a designated prefix, e.g. `exa_order_883921`.
+2. **Scan / Transfer**: The user scans the payment QR code with the BTSBots Wallet App and submits the transfer.
+3. **On-Chain Monitoring & Decryption**: The merchant's `biz_bots.py` monitors incoming transfers, automatically decrypting on-chain memos.
+4. **Instant Fulfillment**: `biz_bots.py` verifies amounts and asset symbols, sending a signed POST callback to the merchant server for instant fulfillment.
 
 ---
 
 ## ⚙️ 2. Configuring `biz_rules.json`
 
-In the `biz_bots.py` directory, map memo prefixes to merchant payment endpoints:
+In the `biz_bots.py` directory, map memo prefixes to merchant payment endpoints in `biz_rules.json`:
 
 ```json
 {
-  "description": "Merchant Payment Endpoint Configuration",
+  "description": "Merchant Payment Listener Routing",
   "updated_at": "2026-08-12 20:00:00",
   "pay_endpoint": {
     "exa_": "https://api.my-shop.com/v1/payment/checkout-notify",
@@ -38,11 +38,13 @@ In the `biz_bots.py` directory, map memo prefixes to merchant payment endpoints:
 }
 ```
 
+* **Routing Rule**: Any transaction with a Memo starting with `exa_` (e.g. Memo `exa_2026081299`) will automatically trigger a notification to the mapped URL.
+
 ---
 
-## 🛠️ 3. Option A: Querying Status via `biz_proxy.py`
+## 🛠️ 3. Option A: Using Local Proxy `biz_proxy.py`
 
-Merchants can query payment statuses via internal APIs provided by `biz_proxy.py`:
+If merchants prefer querying order payment status directly via internal APIs, they can use `biz_proxy.py`:
 
 ### Status Query Endpoint
 * **Method**: `GET /biz-internel/check-payment`
@@ -58,10 +60,10 @@ Merchants can query payment statuses via internal APIs provided by `biz_proxy.py
 
 ---
 
-## 💻 4. Option B: Custom Web Payment Callback
+## 💻 4. Option B: Custom Web Payment Callback API
 
 ### 1. HTTP Payload Specification
-`biz_bots` posts payment details to the configured `pay_endpoint`:
+When payment is confirmed on-chain, `biz_bots` posts payment details to your `pay_endpoint`:
 
 ```json
 {
@@ -71,7 +73,7 @@ Merchants can query payment statuses via internal APIs provided by `biz_proxy.py
 }
 ```
 
-### 2. Python Callback Handler Example (FastAPI)
+### 2. Merchant Callback Implementation Example (Python / FastAPI)
 
 ```python
 import json
@@ -90,27 +92,41 @@ class PaymentCallbackPayload(BaseModel):
 
 @app.post("/v1/payment/checkout-notify")
 async def handle_payment_notification(payload: PaymentCallbackPayload):
+    # 1. Verify public key source
     if payload.pubkey != TRUSTED_BOT_PUBKEY:
         raise HTTPException(status_code=403, detail="Untrusted notification source")
 
+    # 2. Verify payment signature
     if not bts_verify_message(payload.data, payload.signature, payload.pubkey):
-        raise HTTPException(status_code=400, detail="Invalid cryptographic signature")
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
 
+    # 3. Parse payment details
     pay_data = json.loads(payload.data)
     order_id = pay_data.get("order_id")
     tx_id = pay_data.get("tx_id")
     amount = float(pay_data.get("amount"))
     asset = pay_data.get("asset")
 
-    print(f"💰 [Payment Received]: Order {order_id} | TX: {tx_id} | Amount: {amount} {asset}")
+    print(f"💰 [Payment Received]: Order {order_id} | On-Chain TX: {tx_id} | Amount: {amount} {asset}")
 
-    # TODO: Check idempotency, verify expected amount, and fulfill order
+    # 4. Idempotency check: Ensure order is not processed repeatedly
+    # db_order = await db.find_order(order_id)
+    # if db_order.status == 'PAID':
+    #     return {"status": "ok", "message": "already processed"}
+
+    # 5. Verify expected amount and asset code
+    # if amount < db_order.expected_amount or asset != db_order.expected_asset:
+    #     raise HTTPException(status_code=400, detail="Insufficient payment amount")
+
+    # 6. Update database & fulfill order
+    # await db.mark_as_paid(order_id, tx_id)
+
     return {"status": "ok"}
 ```
 
 ---
 
-### 3. Node.js Callback Handler Example (Express)
+### 3. Merchant Callback Implementation Example (Node.js / Express)
 
 ```javascript
 const express = require('express');
@@ -132,6 +148,7 @@ app.post('/v1/payment/checkout-notify', (req, res) => {
     const pubKeyObj = PublicKey.fromPublicKeyString(pubkey);
     const sigObj = Signature.fromHex(signature);
     
+    // Verify signature
     const isValid = sigObj.verifyBuffer(Buffer.from(data, 'utf8'), pubKeyObj);
     if (!isValid) {
       return res.status(400).json({ error: 'Invalid payment signature' });
@@ -141,6 +158,9 @@ app.post('/v1/payment/checkout-notify', (req, res) => {
     const { order_id, tx_id, amount, asset } = payData;
 
     console.log(`🎉 [Payment Verified] Order ${order_id} received ${amount} ${asset} (TX: ${tx_id})`);
+
+    // Merchant fulfillment logic
+    // await orderService.fulfillOrder(order_id, tx_id, amount, asset);
 
     return res.json({ status: 'ok' });
   } catch (err) {
@@ -155,8 +175,14 @@ app.listen(3001, () => console.log('Payment notification listener running on :30
 
 ## 🔗 5. Standard Payment QR Code Scheme
 
-Merchants can render standard URI QR codes for instant scanning:
+Merchants can render standard URI QR codes on the frontend:
 
 ```
 btsbots://transfer?to=merchant_account&asset=CNY&amount=150&memo=exa_2026081299&goods=VIP%20Annual%20Subscription
 ```
+
+* `to`: Merchant's BitShares account.
+* `asset`: Settlement token symbol (e.g., `BTS`, `CNY`, `USD`).
+* `amount`: Required payment amount.
+* `memo`: Required unique order ID with prefix.
+* `goods`: Optional brief goods description displayed in the wallet interface.

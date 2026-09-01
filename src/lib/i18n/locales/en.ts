@@ -70,6 +70,7 @@ export default {
   optGoods: "Goods Description",
   noHistory: "No history found",
   settings: "Settings",
+  docs: "Docs Hub",
   assetWhitelist: "Asset Whitelist",
   assetBlacklist: "Asset Blacklist",
   whitelistDesc: "Force display custom assets in wallet",

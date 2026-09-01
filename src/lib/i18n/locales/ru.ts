@@ -70,6 +70,7 @@ export default {
   optGoods: "Товар",
   noHistory: "Нет истории",
   settings: "Настройки",
+  docs: "Документация",
   assetWhitelist: "Белый список",
   assetBlacklist: "Черный список",
   whitelistDesc: "Принудительно показывать выбранные активы",

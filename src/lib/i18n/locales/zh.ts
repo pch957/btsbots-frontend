@@ -70,6 +70,7 @@ export default {
   optGoods: "存证描述 (Goods)",
   noHistory: "暂无转账记录",
   settings: "设置",
+  docs: "文档中心",
   assetWhitelist: "资产白名单",
   assetBlacklist: "资产黑名单",
   whitelistDesc: "强制在钱包主页展示指定资产代码",
