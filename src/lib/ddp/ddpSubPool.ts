@@ -30,6 +30,15 @@ class DDPSubscriptionPool {
     if (typeof window !== 'undefined') {
       (window as any).ddp = this;
     }
+
+    // 🌟 守护定时器：防止网络弱/未连上时页面一直卡死在“正在恢复安全会话...”
+    setTimeout(() => {
+      if (this.isResuming) {
+        console.warn('[DDP] 会话恢复超时，强制解除阻塞');
+        this.isResuming = false;
+        this.notifyStatus();
+      }
+    }, 3500);
   }
 
   private initClient() {
@@ -81,15 +90,19 @@ class DDPSubscriptionPool {
     this.isResuming = true;
     this.notifyStatus();
 
+    // 增加带 3 秒超时的 Promise 包装
+    const loginPromise = this.client.call('login', { resume: token });
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth Timeout')), 3000));
+
     try {
-      const res = await this.client.call('login', { resume: token });
+      const res: any = await Promise.race([loginPromise, timeoutPromise]);
       if (res && res.id) {
         this.currentUserId = res.id;
         const userDoc = this.client.collection(DDP_CONFIG.COLLECTIONS.USERS)?.filter((u: any) => u._id === res.id).fetch()?.[0];
         this.currentUsername = userDoc?.username || localStorage.getItem('btsbots_cached_username') || null;
       }
     } catch (err) {
-      console.warn('[DDP] 会话恢复失败或 Token 已失效:', err);
+      console.warn('[DDP] 会话恢复失败或 Token 失效:', err);
       localStorage.removeItem(DDP_CONFIG.AUTH_TOKEN_KEY);
       localStorage.removeItem('btsbots_cached_username');
       this.currentUserId = null;

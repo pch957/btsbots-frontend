@@ -17,7 +17,9 @@ export const AssetDetail: React.FC = () => {
   const cleanedAsset = assetName ? assetName.trim().toUpperCase() : 'BTS';
   const [assetSearch, setAssetSearch] = useState('');
 
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.ASSET_PAGE, cleanedAsset);
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.BALANCE, {'a': cleanedAsset});
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.TRANSFER, {'a': cleanedAsset});
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.FILL_ORDER, {'a': cleanedAsset});
 
   const holders = useCollection<BalanceDoc>(
     DDP_CONFIG.COLLECTIONS.BALANCE,

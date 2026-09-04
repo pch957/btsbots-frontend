@@ -8,15 +8,21 @@ export function parseMongoId(id: MongoId | undefined | null): string {
 
 /**
  * 健壮提取 BitShares 挂单对象 ID (1.7.X)
- * 兼容 DDP 返回的 id: "~533025676" 或 _id: "533025676"
  */
 export function extractBitsharesOrderId(orderDoc: any): string {
   if (!orderDoc) return '';
   const rawVal = orderDoc.id || orderDoc._id || '';
   const rawStr = typeof rawVal === 'object' && '_str' in rawVal ? rawVal._str : String(rawVal);
-  // 清洗掉 DDP 长整型前缀 "~" 以及非数字部分
   const cleanDigits = rawStr.replace(/^~/, '').replace(/^1\.7\./, '').trim();
   return cleanDigits ? `1.7.${cleanDigits}` : '';
+}
+
+/**
+ * 格式化 Vesting 归属对象 ID (1.13.X)
+ */
+export function formatVestingId(id: MongoId | undefined | null): string {
+  const parsed = parseMongoId(id).replace(/^~/, '').replace(/^1\.3\./, '').trim();
+  return parsed ? `1.13.${parsed}` : '';
 }
 
 export function parseMongoTime(t: string | number | Date | undefined | null): number {
@@ -77,16 +83,16 @@ export interface OrderDoc {
 export interface AccountDoc {
   _id?: MongoId;
   id?: MongoId;
-  T: string | number | Date;
-  f: number;
-  k: {
+  T?: string | number | Date;
+  f?: number;
+  k?: {
     a: string[];
     o: string[];
     m: string;
   };
-  o: number;
+  o?: number;
   u: string;
-  v: boolean;
+  v?: boolean;
 }
 
 export interface AssetDoc {
@@ -109,19 +115,6 @@ export interface TransferDoc {
   m?: boolean | string;
   u: [string, string];
   [key: string]: any;
-}
-
-export interface MemoDoc {
-  _id?: MongoId;
-  id?: MongoId;
-  T: string | number | Date;
-  k: [string, string];
-  m: string;
-  n: {
-    low: number;
-    high: number;
-    unsigned: boolean;
-  };
 }
 
 export interface FillOrderDoc {
@@ -175,6 +168,7 @@ export interface UserAssetSettingsDoc {
   userId: string;
   hiddenAssets?: string[];
   allowedAssets?: string[];
+  blockedUsers?: string[];
 }
 
 export interface WalletPaymentMetadataDoc {
@@ -185,6 +179,36 @@ export interface WalletPaymentMetadataDoc {
   goods?: string;
   memo?: string;
   createdAt?: string | Date;
+}
+
+export interface VestingDoc {
+  _id: MongoId;
+  id?: MongoId;
+  a: string;      // 资产符号, e.g. 'BTS'
+  b: number;      // 总金额
+  p: number;      // 可领比例, e.g. 1.0 (100%)
+  t: number;      // 0: unspecified, 1: cashback, 2: worker, 3: witness, 4: market_fee_sharing
+  u: string;      // 用户名
+}
+
+export interface VestingWithdrawDoc {
+  _id: MongoId;
+  id?: MongoId;
+  B: number;
+  T: string | number | Date;
+  a: string;      // 资产符号
+  b: number;      // 领取金额
+  u: string;      // 用户名
+}
+
+export interface InvitationDoc {
+  _id?: MongoId;
+  code: string;
+  creator: string;
+  status: 'unused' | 'used';
+  usedBy?: string | null;
+  createdAt: string | Date;
+  usedAt?: string | Date | null;
 }
 
 export interface TopRankingsData {

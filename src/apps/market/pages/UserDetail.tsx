@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useI18n } from '../../../lib/i18n';
 import { useAuth } from '../../../hooks/useAuth';
@@ -6,7 +6,7 @@ import { useFavorites } from '../../../hooks/useFavorites';
 import { useDdpSubscription } from '../../../hooks/useDdpSubscription';
 import { useCollection } from '../../../hooks/useCollection';
 import { DDP_CONFIG } from '../../../config/ddpConfig';
-import { parseMongoId, parseMongoTime, formatFullDateTime, type BalanceDoc, type TransferDoc, type FillOrderDoc, type OrderDoc, type OrderHistoryDoc, type PriceDoc, type UserAssetSettingsDoc, type TrustAssetDoc } from '../../../types/models';
+import { parseMongoId, parseMongoTime, formatFullDateTime, extractBitsharesOrderId, type BalanceDoc, type TransferDoc, type FillOrderDoc, type OrderDoc, type OrderHistoryDoc, type PriceDoc } from '../../../types/models';
 import { signerInstance } from '../../../lib/crypto/signer';
 import { ddpPool } from '../../../lib/ddp/ddpSubPool';
 
@@ -20,9 +20,12 @@ export const UserDetail: React.FC = () => {
   const cleanedUser = username ? username.trim().toLowerCase() : (currentAccount || 'btsbots');
   const [userSearch, setUserSearch] = useState('');
 
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.USER_PAGE, cleanedUser);
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.TRUST_ASSETS);
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.MY_ASSET_SETTINGS);
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.BALANCE, { u: cleanedUser });
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.ORDER_HISTORY, { u: cleanedUser });
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.ORDER_BOOK, cleanedUser);
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.TRANSFER, { u: cleanedUser });
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.FILL_ORDER, { u: cleanedUser });
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.PRICE);
 
   const rawBalances = useCollection<BalanceDoc>(DDP_CONFIG.COLLECTIONS.BALANCE, b => b.u === cleanedUser);
   const openOrders = useCollection<OrderDoc>(DDP_CONFIG.COLLECTIONS.ORDER, o => o.u === cleanedUser);
@@ -42,20 +45,38 @@ export const UserDetail: React.FC = () => {
     (a, b) => parseMongoTime(b.T) - parseMongoTime(a.T)
   );
   const prices = useCollection<PriceDoc>(DDP_CONFIG.COLLECTIONS.PRICE);
-  const trustAssets = useCollection<TrustAssetDoc>(DDP_CONFIG.COLLECTIONS.TRUST_ASSET);
-  const settingsList = useCollection<UserAssetSettingsDoc>(DDP_CONFIG.COLLECTIONS.USER_ASSET_SETTINGS);
 
-  const settings = settingsList[0];
-  const hiddenAssets = settings?.hiddenAssets || [];
-  const allowedAssets = settings?.allowedAssets || [];
+  const [ratingMap, setRatingMap] = useState<Record<string, number>>({});
+  const [allowedAssets, setAllowedAssets] = useState<string[]>([]);
+  const [hiddenAssets, setHiddenAssets] = useState<string[]>([]);
 
-  const ratingMap: Record<string, number> = {};
-  trustAssets.forEach(item => { ratingMap[item.asset.toUpperCase()] = Number(item.rating || 0); });
+  useEffect(() => {
+    const fetchMeta = async () => {
+      try {
+        const [trustList, settings] = await Promise.all([
+          ddpPool.call<Array<{ asset: string; rating: number }>>(DDP_CONFIG.METHODS.GET_TRUST_ASSETS),
+          ddpPool.call<{ allowedAssets?: string[]; hiddenAssets?: string[] }>(DDP_CONFIG.METHODS.GET_MY_ASSET_SETTINGS)
+        ]);
+
+        if (trustList) {
+          const map: Record<string, number> = {};
+          trustList.forEach(item => { map[item.asset.toUpperCase()] = Number(item.rating || 0); });
+          setRatingMap(map);
+        }
+        if (settings) {
+          setAllowedAssets(settings.allowedAssets || []);
+          setHiddenAssets(settings.hiddenAssets || []);
+        }
+      } catch (err) {
+        console.warn('[UserDetail] RPC 拉取元数据失败:', err);
+      }
+    };
+    fetchMeta();
+  }, []);
 
   const priceMap: Record<string, number> = {};
   prices.forEach(p => { priceMap[p.a] = p.p || 0; });
 
-  // 按照钱包逻辑过滤与排序余额
   const processedBalances = rawBalances
     .map(b => {
       const symbol = b.a.toUpperCase();
@@ -74,12 +95,16 @@ export const UserDetail: React.FC = () => {
 
   const totalWorth = processedBalances.reduce((sum, b) => sum + (b.worthCNY || 0), 0);
 
-  // 损益汇总
+  // 🌟 核心改进：过滤掉 30 天（1 个月）前的成交记录，使近期交易汇总更具参考价值
+  const oneMonthAgoMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const assetFlowMap: Record<string, { volume: number; balance: number; value: number }> = {};
   let totalNetCnyProfit = 0;
 
   trades.forEach(tx => {
     if (!tx.a || !tx.b) return;
+    const txTimeMs = parseMongoTime(tx.T);
+    if (txTimeMs < oneMonthAgoMs) return; // 跳过 1 个月前的久远记录
+
     const isTaker = tx.u[0] === cleanedUser;
     const factor = isTaker ? [-1, 1] : [1, -1];
 
@@ -101,12 +126,21 @@ export const UserDetail: React.FC = () => {
     ...assetFlowMap[code]
   }));
 
-  const handleCancelOrder = async (orderId: string) => {
-    if (!confirm('确定撤销此委托吗？')) return;
+  const handleCancelOrder = async (orderDoc: any) => {
+    const formattedOrderId = extractBitsharesOrderId(orderDoc);
+    if (!formattedOrderId || !formattedOrderId.startsWith('1.7.')) {
+      alert('无法解析该订单的有效 BitShares 链上 ID (1.7.X)');
+      return;
+    }
+
+    if (!confirm(`确定撤销限价委托 ${formattedOrderId} 吗？`)) return;
+
     try {
-      const envelope = await signerInstance.signTransactionIntent('limit_order_cancel', { order_id: orderId });
+      const envelope = await signerInstance.signTransactionIntent('limit_order_cancel', {
+        order_id: formattedOrderId
+      });
       await ddpPool.call(DDP_CONFIG.METHODS.REQUEST_PROXY_SIGN, envelope);
-      alert('撤单已发送');
+      alert(`撤单请求已发送: ${formattedOrderId}`);
     } catch (err: any) {
       alert(`撤单失败: ${err.message}`);
     }
@@ -123,16 +157,16 @@ export const UserDetail: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-16 md:pb-0">
+    <div className="space-y-6 animate-fade-in pb-16 md:pb-0 text-sm">
       
       {/* 头部卡片 */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 md:p-6 shadow-sm flex flex-wrap justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-black flex items-center gap-2">
-            <span>👤 {t.userPanel}: <span className="text-blue-500 font-mono">{cleanedUser}</span></span>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 md:p-6 shadow-sm flex flex-wrap justify-between items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-3">
+          <h2 className="text-lg md:text-xl font-black flex items-center gap-2">
+            <span>👤 <span className="text-blue-500 font-mono">{cleanedUser}</span></span>
             <button
               onClick={() => toggleFavorite('users', cleanedUser)}
-              className={`text-xl cursor-pointer transition ${isFav ? 'text-amber-500' : 'text-gray-400'}`}
+              className={`text-lg cursor-pointer transition ${isFav ? 'text-amber-500' : 'text-gray-400'}`}
               title="收藏用户"
             >
               {isFav ? '★' : '☆'}
@@ -142,7 +176,7 @@ export const UserDetail: React.FC = () => {
           <select
             value={cleanedUser}
             onChange={(e) => navigate(`/user/${e.target.value}`)}
-            className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-1.5 text-xs font-bold font-mono outline-none"
+            className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1 text-xs font-bold font-mono outline-none"
           >
             {Array.from(new Set([cleanedUser, ...favs.users])).map(u => (
               <option key={u} value={u}>
@@ -163,38 +197,38 @@ export const UserDetail: React.FC = () => {
               placeholder={t.searchPlaceholder}
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
-              className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500"
+              className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1 text-xs font-mono focus:outline-none focus:border-blue-500"
             />
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs cursor-pointer">
+            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 rounded-xl text-xs cursor-pointer">
               Go
             </button>
           </form>
         </div>
       </div>
 
-      {/* 第一行：持仓资产 & 当前活跃挂单 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+      {/* 持仓资产 & 当前挂单 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
         
         {/* 资产明细 */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col h-full">
-          <div className="flex justify-between items-center mb-3">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 md:p-5 shadow-sm flex flex-col h-full">
+          <div className="flex justify-between items-center mb-2">
             <h3 className="text-xs font-bold text-emerald-500 uppercase tracking-wider">
               💰 {t.myBalances} ({processedBalances.length})
             </h3>
             <span className="text-[11px] text-gray-400 font-mono">¥ {totalWorth.toFixed(2)}</span>
           </div>
 
-          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
+          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-1.5 mb-1.5">
             <span className="col-span-5">{t.asset}</span>
             <span className="col-span-3 text-right">{t.availableBal}</span>
             <span className="col-span-4 text-right">{t.valueCny}</span>
           </div>
 
-          <div className="space-y-2 max-h-72 overflow-y-auto pr-1 flex-1">
+          <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 flex-1">
             {processedBalances.length === 0 ? (
-              <p className="text-xs text-gray-400 py-8 text-center">{t.noAsset}</p>
+              <p className="text-xs text-gray-400 py-6 text-center">{t.noAsset}</p>
             ) : processedBalances.map(b => (
-              <div key={parseMongoId(b._id)} className="grid grid-cols-12 text-xs py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
+              <div key={parseMongoId(b._id)} className="grid grid-cols-12 text-xs py-0.5 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
                 <Link to={`/asset/${b.a}`} className="col-span-5 font-bold text-blue-500 hover:underline truncate">🪙 {b.a}</Link>
                 <span className="col-span-3 text-right">{b.f?.toLocaleString()}</span>
                 <span className="col-span-4 text-right text-emerald-500 font-bold">¥ {b.worthCNY?.toFixed(2)}</span>
@@ -203,25 +237,25 @@ export const UserDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* 当前限价挂单 */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col h-full">
-          <div className="flex justify-between items-center mb-3">
+        {/* 限价挂单 */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 md:p-5 shadow-sm flex flex-col h-full">
+          <div className="flex justify-between items-center mb-2">
             <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider">
               ⏳ {t.userOrders} ({openOrders.length})
             </h3>
           </div>
 
-          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
+          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-1.5 mb-1.5">
             <span className="col-span-5">{t.pair}</span>
             <span className="col-span-3 text-right">{t.price}</span>
             <span className="col-span-4 text-right">{t.amount}</span>
           </div>
 
-          <div className="space-y-2 max-h-72 overflow-y-auto pr-1 flex-1">
+          <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 flex-1">
             {openOrders.length === 0 ? (
-              <p className="text-xs text-gray-400 py-8 text-center">{t.noData}</p>
+              <p className="text-xs text-gray-400 py-6 text-center">{t.noData}</p>
             ) : openOrders.map(o => (
-              <div key={parseMongoId(o._id)} className="grid grid-cols-12 text-xs py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
+              <div key={parseMongoId(o._id)} className="grid grid-cols-12 text-xs py-0.5 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
                 <Link to="/market" state={{ jumpPair: `${o.a?.s}_${o.a?.b}` }} className="col-span-5 text-blue-500 hover:underline truncate">
                   {o.a?.s}/{o.a?.b}
                 </Link>
@@ -229,7 +263,7 @@ export const UserDetail: React.FC = () => {
                 <div className="col-span-4 flex items-center justify-end gap-1.5">
                   <span>{o.b?.toFixed(2)}</span>
                   {cleanedUser === currentAccount && (
-                    <button onClick={() => handleCancelOrder(parseMongoId(o._id))} className="text-red-500 font-bold hover:bg-red-500/10 px-1 rounded cursor-pointer">✕</button>
+                    <button onClick={() => handleCancelOrder(o)} className="text-red-500 font-bold hover:bg-red-500/10 px-1 rounded cursor-pointer">✕</button>
                   )}
                 </div>
               </div>
@@ -239,24 +273,24 @@ export const UserDetail: React.FC = () => {
 
       </div>
 
-      {/* 第二行：转账流水 & 历史成交 (时分秒显示，悬停显示完整年月日) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+      {/* 转账流水 & 历史成交 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
         
         {/* 转账明细 */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col h-full">
-          <h3 className="text-xs font-bold text-amber-500 mb-3 uppercase tracking-wider">💸 {t.userTransfers} ({transfers.length})</h3>
-          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 md:p-5 shadow-sm flex flex-col h-full">
+          <h3 className="text-xs font-bold text-amber-500 mb-2 uppercase tracking-wider">💸 {t.userTransfers} ({transfers.length})</h3>
+          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-1.5 mb-1.5">
             <span className="col-span-3">{t.time}</span>
             <span className="col-span-5">{t.trader}</span>
             <span className="col-span-4 text-right">{t.amount}</span>
           </div>
-          <div className="space-y-2 max-h-72 overflow-y-auto pr-1 flex-1">
+          <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 flex-1">
             {transfers.map(tx => {
               const isSender = tx.u?.[0] === cleanedUser;
               const counterparty = isSender ? tx.u?.[1] : tx.u?.[0];
               return (
-                <div key={parseMongoId(tx._id)} className="grid grid-cols-12 text-xs py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
-                  <span className="col-span-3 text-gray-400 text-[11px] cursor-help" title={formatFullDateTime(tx.T)}>
+                <div key={parseMongoId(tx._id)} className="grid grid-cols-12 text-xs py-0.5 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
+                  <span className="col-span-3 text-gray-400 text-[11px]" title={formatFullDateTime(tx.T)}>
                     {new Date(parseMongoTime(tx.T)).toLocaleTimeString()}
                   </span>
                   <Link to={`/user/${counterparty}`} className="col-span-5 text-blue-500 hover:underline truncate">{counterparty}</Link>
@@ -270,17 +304,17 @@ export const UserDetail: React.FC = () => {
         </div>
 
         {/* 成交记录 */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col h-full">
-          <h3 className="text-xs font-bold text-red-500 mb-3 uppercase tracking-wider">📜 {t.userTrades} ({trades.length})</h3>
-          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 md:p-5 shadow-sm flex flex-col h-full">
+          <h3 className="text-xs font-bold text-red-500 mb-2 uppercase tracking-wider">📜 {t.userTrades} ({trades.length})</h3>
+          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-1.5 mb-1.5">
             <span className="col-span-3">{t.time}</span>
             <span className="col-span-5">{t.pair}</span>
             <span className="col-span-4 text-right">{t.price}</span>
           </div>
-          <div className="space-y-2 max-h-72 overflow-y-auto pr-1 flex-1">
+          <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 flex-1">
             {trades.map(tr => (
-              <div key={parseMongoId(tr._id)} className="grid grid-cols-12 text-xs py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
-                <span className="col-span-3 text-gray-400 text-[11px] cursor-help" title={formatFullDateTime(tr.T)}>
+              <div key={parseMongoId(tr._id)} className="grid grid-cols-12 text-xs py-0.5 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
+                <span className="col-span-3 text-gray-400 text-[11px]" title={formatFullDateTime(tr.T)}>
                   {new Date(parseMongoTime(tr.T)).toLocaleTimeString()}
                 </span>
                 <Link to="/market" state={{ jumpPair: tr.m }} className="col-span-5 text-blue-500 hover:underline truncate">{tr.a?.join('/')}</Link>
@@ -292,41 +326,45 @@ export const UserDetail: React.FC = () => {
 
       </div>
 
-      {/* 第三行：损益汇总 */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm">
-        <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-800 pb-3 mb-3">
-          <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider">📈 {t.recentSummary}</h3>
+      {/* 损益汇总 (最近 30 天) */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 md:p-5 shadow-sm">
+        <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-800 pb-2 mb-2">
+          <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider">📈 {t.recentSummary} (近 30 天)</h3>
           <span className="text-xs font-mono font-bold">
             {t.netProfit}: <b className={totalNetCnyProfit >= 0 ? 'text-emerald-500' : 'text-red-500'}>¥ {totalNetCnyProfit.toFixed(2)} CNY</b>
           </span>
         </div>
 
-        <div className="grid grid-cols-4 text-xs font-bold text-gray-400 pb-2">
+        <div className="grid grid-cols-4 text-[11px] font-bold text-gray-400 pb-1.5">
           <span>{t.asset}</span>
           <span className="text-right">{t.todayVolume}</span>
           <span className="text-right">净收支</span>
           <span className="text-right">{t.valueCny}</span>
         </div>
 
-        <div className="space-y-1.5 font-mono text-xs">
-          {computedPnlRows.map(row => (
-            <div key={row.assetCode} className="grid grid-cols-4 py-1 border-b border-gray-100 dark:border-gray-800/40">
-              <Link to={`/asset/${row.assetCode}`} className="font-bold text-blue-500">{row.assetCode}</Link>
-              <span className="text-right">{row.volume.toFixed(2)}</span>
-              <span className={`text-right font-bold ${row.balance >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{row.balance.toFixed(2)}</span>
-              <span className={`text-right font-bold ${row.value >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>¥ {row.value.toFixed(2)}</span>
-            </div>
-          ))}
+        <div className="space-y-1 font-mono text-xs">
+          {computedPnlRows.length === 0 ? (
+            <p className="text-xs text-gray-400 py-3 text-center">近 30 天暂无成交变动</p>
+          ) : (
+            computedPnlRows.map(row => (
+              <div key={row.assetCode} className="grid grid-cols-4 py-0.5 border-b border-gray-100 dark:border-gray-800/40">
+                <Link to={`/asset/${row.assetCode}`} className="font-bold text-blue-500">{row.assetCode}</Link>
+                <span className="text-right">{row.volume.toFixed(2)}</span>
+                <span className={`text-right font-bold ${row.balance >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{row.balance.toFixed(2)}</span>
+                <span className={`text-right font-bold ${row.value >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>¥ {row.value.toFixed(2)}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
-      {/* 第四行：委托日志 */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm">
-        <h3 className="text-xs font-bold text-amber-500 mb-3 uppercase tracking-wider">📋 {t.orderHistoryLogs} ({orderHistory.length})</h3>
-        <div className="space-y-2 max-h-72 overflow-y-auto pr-1 font-mono text-xs">
+      {/* 委托日志 */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 md:p-5 shadow-sm">
+        <h3 className="text-xs font-bold text-amber-500 mb-2 uppercase tracking-wider">📋 {t.orderHistoryLogs} ({orderHistory.length})</h3>
+        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 font-mono text-xs">
           {orderHistory.map(oh => (
-            <div key={parseMongoId(oh._id)} className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/40">
-              <span className="text-gray-400 cursor-help" title={formatFullDateTime(oh.T)}>
+            <div key={parseMongoId(oh._id)} className="flex justify-between items-center py-0.5 border-b border-gray-100 dark:border-gray-800/40">
+              <span className="text-gray-400 text-[11px]" title={formatFullDateTime(oh.T)}>
                 {new Date(parseMongoTime(oh.T)).toLocaleTimeString()}
               </span>
               <span className={`font-bold ${oh.t === 1 ? 'text-emerald-500' : 'text-red-500'}`}>

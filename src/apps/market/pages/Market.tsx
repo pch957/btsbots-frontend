@@ -48,10 +48,15 @@ export const Market: React.FC = () => {
 
   useDdpSubscription(DDP_CONFIG.PUBLICATIONS.ORDER_BOOK, baseAsset, quoteAsset);
   useDdpSubscription(DDP_CONFIG.PUBLICATIONS.ORDER_BOOK, quoteAsset, baseAsset);
+  // 1. 订阅该市场的全网成交
   useDdpSubscription(DDP_CONFIG.PUBLICATIONS.FILL_ORDER, { m: databasePair });
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.LOGIN_BALANCE);
+  // 2. 专项订阅当前登录用户在该市场的成交
+  if (currentAccount) {
+    useDdpSubscription(DDP_CONFIG.PUBLICATIONS.FILL_ORDER, { m: databasePair, u: currentAccount });
+  }
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.BALANCE, { u: currentAccount });
 
-  // 1. 买卖盘口深度数据
+  // 买卖盘口深度数据
   const rawAsks = useCollection<OrderDoc>(
     DDP_CONFIG.COLLECTIONS.ORDER,
     o => o.a?.s === baseAsset && o.a?.b === quoteAsset,
@@ -64,7 +69,7 @@ export const Market: React.FC = () => {
     (a, b) => (1 / (b.p || 1)) - (1 / (a.p || 1))
   );
 
-  // 2. 撮合成交历史 (根据 Taker 属性与买卖方向区分红绿颜色)
+  // 撮合成交历史
   const rawTrades = useCollection<FillOrderDoc>(
     DDP_CONFIG.COLLECTIONS.FILL_ORDER,
     tr => tr.m === databasePair,
@@ -75,15 +80,29 @@ export const Market: React.FC = () => {
     const isInverse = tr.a && tr.a[0] !== baseAsset;
     const unifiedPrice = (isInverse && tr.p > 0) ? (1 / tr.p) : (tr.p || 0);
     const amount = tr.a && tr.a[0] === baseAsset ? (tr.b?.[0] || 0) : (tr.b?.[1] || tr.b?.[0] || 0);
-
-    // 📐 染色规则：如果 Taker 付出 Quote 买进 Base，则是主动买单(绿)；若付出 Base 则为主动卖单(红)
     const isBuyerTaker = tr.t_side === 'buy' || (tr.a && tr.a[0] === quoteAsset);
+
+    // 🌟 判定当前用户的买卖方向
+    let myAction: 'buy' | 'sell' | null = null;
+    if (currentAccount && Array.isArray(tr.u)) {
+      const isTaker = tr.u[0] === currentAccount;
+      const isMaker = tr.u[1] === currentAccount;
+
+      if (isTaker) {
+        // Taker 是卖出 tr.a[0] 得到 tr.a[1]
+        myAction = tr.a?.[0] === baseAsset ? 'sell' : 'buy';
+      } else if (isMaker) {
+        // Maker 是 Taker 的交易对手方
+        myAction = tr.a?.[0] === baseAsset ? 'buy' : 'sell';
+      }
+    }
 
     return {
       ...tr,
       displayPrice: unifiedPrice,
       displayAmount: amount,
-      isBuyerTaker
+      isBuyerTaker,
+      myAction
     };
   });
 
@@ -134,6 +153,20 @@ export const Market: React.FC = () => {
     }
   };
 
+  const handleMaxBuy = () => {
+    const p = parseFloat(buyPrice);
+    if (!p || p <= 0) {
+      alert('请先输入有效的买入单价');
+      return;
+    }
+    const maxCanBuy = quoteBal / p;
+    setBuyAmount(maxCanBuy > 0 ? maxCanBuy.toFixed(4) : '0');
+  };
+
+  const handleMaxSell = () => {
+    setSellAmount(baseBal.toString());
+  };
+
   const handlePlaceOrder = async (action: 'buy' | 'sell') => {
     if (!isLoggedIn) {
       alert('请先登录交易账号');
@@ -168,7 +201,6 @@ export const Market: React.FC = () => {
     }
   };
 
-  // 🌟 彻底修复撤单 ID 解析
   const handleCancelOrder = async (orderDoc: any) => {
     const formattedOrderId = extractBitsharesOrderId(orderDoc);
     if (!formattedOrderId || !formattedOrderId.startsWith('1.7.')) {
@@ -192,12 +224,12 @@ export const Market: React.FC = () => {
   const isCurrentFav = isFavorite('markets', currentPair);
 
   return (
-    <div className="space-y-6 animate-fade-in pb-16 md:pb-0">
+    <div className="space-y-6 animate-fade-in pb-16 md:pb-0 text-sm">
       
-      {/* 市场概览 Bar */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* 市场概览 */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 md:p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-xl font-black flex items-center gap-2">
+          <h2 className="text-xl md:text-2xl font-black flex items-center gap-2">
             <span>📊 {baseAsset} / {quoteAsset}</span>
             <button
               onClick={() => toggleFavorite('markets', currentPair)}
@@ -211,7 +243,7 @@ export const Market: React.FC = () => {
           <select
             value={currentPair}
             onChange={(e) => setCurrentPair(e.target.value)}
-            className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-1.5 text-xs font-bold font-mono outline-none"
+            className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1 text-xs font-bold font-mono outline-none"
           >
             {Array.from(new Set(['BTS_CNY', 'BTS_USD', ...favs.markets])).map(pair => (
               <option key={pair} value={pair}>
@@ -226,44 +258,53 @@ export const Market: React.FC = () => {
               placeholder={t.searchMarketPlaceholder}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500"
+              className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1 text-xs font-mono focus:outline-none focus:border-blue-500"
             />
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs cursor-pointer">
+            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 rounded-xl text-xs cursor-pointer">
               Go
             </button>
           </form>
         </div>
 
-        <div className="flex flex-wrap gap-4 md:gap-6 text-xs font-mono">
-          <div><span className="text-gray-400 block">{t.lastPrice}</span><b className="text-blue-500 text-sm">{summary.price?.toFixed(4)}</b></div>
-          <div><span className="text-gray-400 block">{t.change24h}</span><b className={summary.change >= 0 ? 'text-emerald-500' : 'text-red-500'}>{summary.change >= 0 ? '+' : ''}{summary.change?.toFixed(2)}%</b></div>
-          <div><span className="text-gray-400 block">{t.high24h}</span><b>{summary.high?.toFixed(4)}</b></div>
-          <div><span className="text-gray-400 block">{t.low24h}</span><b>{summary.low?.toFixed(4)}</b></div>
+        <div className="flex flex-wrap gap-4 text-xs font-mono">
+          <div><span className="text-gray-400 block">{t.lastPrice}</span><b className="text-blue-500 text-sm md:text-base">{summary.price?.toFixed(4)}</b></div>
+          <div><span className="text-gray-400 block">{t.change24h}</span><b className={`text-xs md:text-sm ${summary.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{summary.change >= 0 ? '+' : ''}{summary.change?.toFixed(2)}%</b></div>
+          <div><span className="text-gray-400 block">{t.high24h}</span><b className="text-xs md:text-sm">{summary.high?.toFixed(4)}</b></div>
+          <div><span className="text-gray-400 block">{t.low24h}</span><b className="text-xs md:text-sm">{summary.low?.toFixed(4)}</b></div>
         </div>
       </div>
 
       {/* 下单面板 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
         {/* 买单 */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 md:p-6 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm space-y-3">
           <div className="flex justify-between items-center">
-            <h4 className="text-md font-bold text-emerald-500">🟢 {t.buyAsset} {baseAsset}</h4>
-            <span className="text-xs text-gray-400">{t.balanceAvailable}: <b className="font-mono">{quoteBal.toFixed(2)}</b> {quoteAsset}</span>
+            <h4 className="text-sm font-bold text-emerald-500">🟢 {t.buyAsset} {baseAsset}</h4>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">{t.balanceAvailable}: <b className="font-mono">{quoteBal.toFixed(2)}</b> {quoteAsset}</span>
+              <button
+                type="button"
+                onClick={handleMaxBuy}
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer"
+              >
+                100% 全仓
+              </button>
+            </div>
           </div>
           <input
             type="number"
             placeholder={`${t.price} (${quoteAsset})`}
             value={buyPrice}
             onChange={(e) => setBuyPrice(e.target.value)}
-            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-blue-500"
+            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-3.5 py-2.5 text-sm font-mono focus:outline-none focus:border-blue-500"
           />
           <input
             type="number"
             placeholder={`${t.quantity} (${baseAsset})`}
             value={buyAmount}
             onChange={(e) => setBuyAmount(e.target.value)}
-            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-blue-500"
+            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-3.5 py-2.5 text-sm font-mono focus:outline-none focus:border-blue-500"
           />
           <button
             onClick={() => handlePlaceOrder('buy')}
@@ -275,24 +316,33 @@ export const Market: React.FC = () => {
         </div>
 
         {/* 卖单 */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 md:p-6 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm space-y-3">
           <div className="flex justify-between items-center">
-            <h4 className="text-md font-bold text-red-500">🔴 {t.sellAsset} {baseAsset}</h4>
-            <span className="text-xs text-gray-400">{t.balanceAvailable}: <b className="font-mono">{baseBal.toFixed(2)}</b> {baseAsset}</span>
+            <h4 className="text-sm font-bold text-red-500">🔴 {t.sellAsset} {baseAsset}</h4>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">{t.balanceAvailable}: <b className="font-mono">{baseBal.toFixed(2)}</b> {baseAsset}</span>
+              <button
+                type="button"
+                onClick={handleMaxSell}
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-500 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer"
+              >
+                100% 全部
+              </button>
+            </div>
           </div>
           <input
             type="number"
             placeholder={`${t.price} (${quoteAsset})`}
             value={sellPrice}
             onChange={(e) => setSellPrice(e.target.value)}
-            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-blue-500"
+            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-3.5 py-2.5 text-sm font-mono focus:outline-none focus:border-blue-500"
           />
           <input
             type="number"
             placeholder={`${t.quantity} (${baseAsset})`}
             value={sellAmount}
             onChange={(e) => setSellAmount(e.target.value)}
-            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-blue-500"
+            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-3.5 py-2.5 text-sm font-mono focus:outline-none focus:border-blue-500"
           />
           <button
             onClick={() => handlePlaceOrder('sell')}
@@ -305,32 +355,32 @@ export const Market: React.FC = () => {
 
       </div>
 
-      {/* 🌟 核心对齐重构：价格 40%、数量 35%、交易员 25% 黄金比例分布 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+      {/* 盘口与成交明细 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
         
-        {/* 买盘 (Bids) */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col h-full">
-          <h4 className="text-xs font-bold text-emerald-500 mb-3 uppercase tracking-wider">{t.bidsBook} ({rawBids.length})</h4>
+        {/* 买盘 */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 shadow-sm flex flex-col h-full">
+          <h4 className="text-xs font-bold text-emerald-500 mb-2 uppercase tracking-wider">{t.bidsBook} ({rawBids.length})</h4>
           
-          <div className="flex justify-between text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
+          <div className="flex justify-between text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-1.5 mb-1.5">
             <span className="w-[40%]">{t.price} ({quoteAsset})</span>
             <span className="w-[35%] text-right">{t.quantity}</span>
             <span className="w-[25%] text-right">{t.trader}</span>
           </div>
 
-          <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 flex-1">
+          <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 flex-1 text-xs">
             {rawBids.map(o => {
               const isMine = currentAccount && o.u === currentAccount;
               const priceVal = o.p ? (1 / o.p) : 0;
               const amountVal = o.p ? (o.b * o.p) : 0;
               return (
-                <div key={parseMongoId(o.id || o._id)} className="flex items-center justify-between text-xs py-1 font-mono hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded px-1">
-                  <div className="w-[40%] flex items-center gap-1.5 overflow-hidden">
+                <div key={parseMongoId(o.id || o._id)} className="flex items-center justify-between py-0.5 font-mono">
+                  <div className="w-[40%] flex items-center gap-1 overflow-hidden">
                     <span className="text-emerald-500 font-bold">{priceVal.toFixed(4)}</span>
                     {isMine && (
                       <button
                         onClick={() => handleCancelOrder(o)}
-                        className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition shrink-0"
+                        className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-1 py-0.5 rounded text-[10px] font-bold cursor-pointer"
                         title="撤单"
                       >
                         ✕
@@ -345,27 +395,27 @@ export const Market: React.FC = () => {
           </div>
         </div>
 
-        {/* 卖盘 (Asks) */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col h-full">
-          <h4 className="text-xs font-bold text-red-500 mb-3 uppercase tracking-wider">{t.asksBook} ({rawAsks.length})</h4>
+        {/* 卖盘 */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 shadow-sm flex flex-col h-full">
+          <h4 className="text-xs font-bold text-red-500 mb-2 uppercase tracking-wider">{t.asksBook} ({rawAsks.length})</h4>
           
-          <div className="flex justify-between text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
+          <div className="flex justify-between text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-1.5 mb-1.5">
             <span className="w-[40%]">{t.price} ({quoteAsset})</span>
             <span className="w-[35%] text-right">{t.quantity}</span>
             <span className="w-[25%] text-right">{t.trader}</span>
           </div>
 
-          <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 flex-1">
+          <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 flex-1 text-xs">
             {rawAsks.map(o => {
               const isMine = currentAccount && o.u === currentAccount;
               return (
-                <div key={parseMongoId(o.id || o._id)} className="flex items-center justify-between text-xs py-1 font-mono hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded px-1">
-                  <div className="w-[40%] flex items-center gap-1.5 overflow-hidden">
+                <div key={parseMongoId(o.id || o._id)} className="flex items-center justify-between py-0.5 font-mono">
+                  <div className="w-[40%] flex items-center gap-1 overflow-hidden">
                     <span className="text-red-500 font-bold">{o.p?.toFixed(4)}</span>
                     {isMine && (
                       <button
                         onClick={() => handleCancelOrder(o)}
-                        className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition shrink-0"
+                        className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-1 py-0.5 rounded text-[10px] font-bold cursor-pointer"
                         title="撤单"
                       >
                         ✕
@@ -380,30 +430,59 @@ export const Market: React.FC = () => {
           </div>
         </div>
 
-        {/* 成交历史 (按买卖方向严格红绿染色) */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col h-full">
-          <h4 className="text-xs font-bold text-blue-500 mb-3 uppercase tracking-wider">{t.tradeHistory} ({processedTrades.length})</h4>
+        {/* 🌟 成交历史 (区分我买入和我卖出) */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-4 shadow-sm flex flex-col h-full">
+          <h4 className="text-xs font-bold text-blue-500 mb-2 uppercase tracking-wider">{t.tradeHistory} ({processedTrades.length})</h4>
           
-          <div className="flex justify-between text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
-            <span className="w-[35%]">{t.time}</span>
-            <span className="w-[35%] text-right">{t.price}</span>
-            <span className="w-[30%] text-right">{t.amount}</span>
+          <div className="flex justify-between text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-1.5 mb-1.5">
+            <span className="w-[34%]">{t.time}</span>
+            <span className="w-[34%] text-right">{t.price}</span>
+            <span className="w-[32%] text-right">{t.amount}</span>
           </div>
 
-          <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 flex-1 font-mono">
-            {processedTrades.map(tr => (
-              <div key={parseMongoId(tr.id || tr._id)} className="flex justify-between items-center text-xs py-1 border-b border-gray-100 dark:border-gray-800/40">
-                <span className="w-[35%] text-gray-400 cursor-help text-[11px]" title={formatFullDateTime(tr.T)}>
-                  {new Date(parseMongoTime(tr.T)).toLocaleTimeString()}
-                </span>
-                <span className={`w-[35%] text-right font-bold ${tr.isBuyerTaker ? 'text-emerald-500' : 'text-red-500'}`}>
-                  {tr.displayPrice?.toFixed(4)}
-                </span>
-                <span className="w-[30%] text-right text-gray-800 dark:text-gray-300">
-                  {tr.displayAmount?.toFixed(2)}
-                </span>
-              </div>
-            ))}
+          <div className="space-y-1 max-h-72 overflow-y-auto pr-1 flex-1 font-mono text-xs">
+            {processedTrades.map(tr => {
+              const isMyBuy = tr.myAction === 'buy';
+              const isMySell = tr.myAction === 'sell';
+              const isMyTrade = isMyBuy || isMySell;
+
+              return (
+                <div 
+                  key={parseMongoId(tr.id || tr._id)} 
+                  className={`flex justify-between items-center py-1 px-1.5 rounded-lg border-b border-gray-100 dark:border-gray-800/40 ${
+                    isMyBuy ? 'bg-emerald-500/10 border-emerald-500/30' : (isMySell ? 'bg-red-500/10 border-red-500/30' : '')
+                  }`}
+                >
+                  <div className="w-[34%] flex items-center gap-1">
+                    <span className="text-gray-400 text-[11px]" title={formatFullDateTime(tr.T)}>
+                      {new Date(parseMongoTime(tr.T)).toLocaleTimeString()}
+                    </span>
+                    {isMyBuy && (
+                      <span className="bg-emerald-600 text-white text-[9px] font-black px-1 py-0.2 rounded shrink-0">
+                        我买
+                      </span>
+                    )}
+                    {isMySell && (
+                      <span className="bg-red-600 text-white text-[9px] font-black px-1 py-0.2 rounded shrink-0">
+                        我卖
+                      </span>
+                    )}
+                  </div>
+
+                  <span className={`w-[34%] text-right font-bold ${
+                    isMyTrade 
+                      ? (isMyBuy ? 'text-emerald-500' : 'text-red-500') 
+                      : (tr.isBuyerTaker ? 'text-emerald-500' : 'text-red-500')
+                  }`}>
+                    {tr.displayPrice?.toFixed(4)}
+                  </span>
+                  
+                  <span className="w-[32%] text-right text-gray-800 dark:text-gray-300">
+                    {tr.displayAmount?.toFixed(2)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

@@ -5,12 +5,14 @@
 @layer base {
   html {
     color-scheme: light;
+    font-size: 100%;
+    overflow-x: hidden;
   }
   html.dark {
     color-scheme: dark;
   }
   body {
-    @apply antialiased selection:bg-blue-500 selection:text-white bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+    @apply antialiased selection:bg-blue-500 selection:text-white bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 overflow-x-hidden text-sm md:text-base;
   }
 }
 

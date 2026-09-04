@@ -7,9 +7,9 @@ interface AutoLockProviderProps {
 
 export function AutoLockProvider({ onLock }: AutoLockProviderProps) {
   const timerRef = useRef<any>(null);
+  const intervalRef = useRef<any>(null);
 
   useEffect(() => {
-    // 1. 检查是否已经超时 (解决手机息屏、锁屏切回、切到后台的问题)
     const checkTimeout = () => {
       if (!PinLockManager.hasPinSet()) return false;
       const elapsed = Date.now() - PinLockManager.getLastActivity();
@@ -21,7 +21,6 @@ export function AutoLockProvider({ onLock }: AutoLockProviderProps) {
       return false;
     };
 
-    // 2. 重置前台倒计时与活跃时间戳
     const resetTimer = () => {
       if (!PinLockManager.hasPinSet()) return;
       PinLockManager.updateActivity();
@@ -34,30 +33,34 @@ export function AutoLockProvider({ onLock }: AutoLockProviderProps) {
       }, AUTO_LOCK_TIMEOUT_MS);
     };
 
-    const handleVisibilityOrFocus = () => {
+    const handleWakeup = () => {
       if (!checkTimeout()) {
         resetTimer();
       }
     };
 
-    // 绑定前台用户操作事件
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    // 1. 用户活动事件监听
+    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click'];
     events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
     
-    // 绑定唤醒/切换到前台事件
-    window.addEventListener('visibilitychange', handleVisibilityOrFocus);
-    window.addEventListener('focus', handleVisibilityOrFocus);
+    // 2. 页面可见性与聚焦
+    window.addEventListener('visibilitychange', handleWakeup);
+    window.addEventListener('focus', handleWakeup);
 
-    // 初始化运行检查
+    // 3. 增加定期心跳检查（每 5 秒轮询，确保挂起唤醒后及时触发锁定）
+    intervalRef.current = setInterval(checkTimeout, 5000);
+
+    // 初始化检查
     if (!checkTimeout()) {
       resetTimer();
     }
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (intervalRef.current) clearInterval(intervalRef.current);
       events.forEach(e => window.removeEventListener(e, resetTimer));
-      window.removeEventListener('visibilitychange', handleVisibilityOrFocus);
-      window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('visibilitychange', handleWakeup);
+      window.removeEventListener('focus', handleWakeup);
     };
   }, [onLock]);
 

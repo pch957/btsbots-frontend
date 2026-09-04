@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useI18n } from '../../../lib/i18n';
 import { useCollection } from '../../../hooks/useCollection';
+import { useDdpSubscription } from '../../../hooks/useDdpSubscription';
 import { DDP_CONFIG } from '../../../config/ddpConfig';
 import { parseMongoTime, type TransferDoc } from '../../../types/models';
 import { signerInstance } from '../../../lib/crypto/signer';
 import { ddpPool } from '../../../lib/ddp/ddpSubPool';
-import { PinLockManager } from '../../../lib/crypto/pinLock';
 
 interface PayViewProps {
   currentAccount: string;
@@ -44,7 +44,8 @@ export const PayView: React.FC<PayViewProps> = ({
   // 弹窗 PIN 验证状态机
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
-  const [pendingEnvelope, setPendingEnvelope] = useState<any>(null);
+
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.TRANSFER, { u: currentAccount });
 
   // 近期联系人
   const allTransfers = useCollection<TransferDoc>(
@@ -73,12 +74,9 @@ export const PayView: React.FC<PayViewProps> = ({
         memo: memo.trim()
       });
 
-      // 首次尝试发送请求给服务端 proxySign
       const res = await ddpPool.call(DDP_CONFIG.METHODS.REQUEST_PROXY_SIGN, envelope, goodsName);
 
       if (res && res.requirePin) {
-        // 服务端要求提供 PIN 码
-        setPendingEnvelope(envelope);
         setShowPinModal(true);
       } else {
         setTxResult(typeof res === 'string' ? res : '广播成功');
@@ -97,25 +95,31 @@ export const PayView: React.FC<PayViewProps> = ({
     setError('');
 
     try {
-      // 本地 PIN 校验与加签转发
-      const isValid = await PinLockManager.verifyPin(pinInput);
-      if (!isValid) {
-        throw new Error(t.pinError);
-      }
+      const envelope = await signerInstance.signTransactionIntent('transfer', {
+        to_account: toAccount.toLowerCase().trim(),
+        asset: payAsset.toUpperCase().trim(),
+        amount: Number(amount),
+        memo: memo.trim(),
+        pin: pinInput
+      });
 
-      // 将 PIN 作为签名请求附加参数发给后端
       const res = await ddpPool.call(
         DDP_CONFIG.METHODS.REQUEST_PROXY_SIGN,
-        pendingEnvelope,
-        goodsName,
-        pinInput
+        envelope,
+        goodsName
       );
+      if (res && res.requirePin) {
+        setShowPinModal(true);
+      } else {
+        setShowPinModal(false);
+        setPinInput('');
+        setTxResult(typeof res === 'string' ? res : '广播成功');
+        resetForm();
+      }
 
+    } catch (err: any) {
       setShowPinModal(false);
       setPinInput('');
-      setTxResult(typeof res === 'string' ? res : '广播成功');
-      resetForm();
-    } catch (err: any) {
       setError(err.message || 'PIN 码验证失败');
     } finally {
       setIsSubmitting(false);
@@ -130,47 +134,47 @@ export const PayView: React.FC<PayViewProps> = ({
   };
 
   return (
-    <div className="max-w-xl mx-auto bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-200 dark:border-gray-700 shadow-xl animate-fade-in">
+    <div className="max-w-xl mx-auto bg-white dark:bg-gray-800 rounded-3xl p-6 md:p-8 border border-gray-200 dark:border-gray-700 shadow-xl animate-fade-in">
       
       <div className="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700/50 pb-4">
-        <h3 className="text-md font-extrabold text-blue-600 dark:text-blue-400">💸 {t.payView}</h3>
+        <h3 className="text-lg font-extrabold text-blue-600 dark:text-blue-400">💸 {t.payView}</h3>
         <button
           type="button"
           onClick={onOpenScanner}
-          className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl transition cursor-pointer"
+          className="text-xs md:text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl transition cursor-pointer"
         >
           📷 {t.scan}
         </button>
       </div>
 
       {goodsName && (
-        <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex justify-between items-center text-xs">
+        <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex justify-between items-center text-xs md:text-sm">
           <span>🛒 商品: <b>{goodsName}</b></span>
           <button onClick={() => setGoodsName('')} className="text-red-500 font-bold px-2 py-1">✕</button>
         </div>
       )}
 
       {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-xs rounded-2xl text-center">
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-xs md:text-sm rounded-2xl text-center">
           ⚠️ {error}
         </div>
       )}
 
       {txResult && (
-        <div className="mb-4 p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs rounded-2xl font-mono break-all">
+        <div className="mb-4 p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs md:text-sm rounded-2xl font-mono break-all">
           🎉 转账广播成功！单号: {txResult}
         </div>
       )}
 
       <form onSubmit={startPaymentFlow} className="space-y-4">
         <div>
-          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t.address}</label>
+          <label className="block text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-1">{t.address}</label>
           <input
             type="text"
             value={toAccount}
             onChange={(e) => setToAccount(e.target.value)}
             disabled={isSubmitting}
-            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 font-mono text-sm focus:outline-none focus:border-blue-500"
+            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 font-mono text-base focus:outline-none focus:border-blue-500"
             placeholder="接收方 BitShares 账号名"
             required
           />
@@ -183,7 +187,7 @@ export const PayView: React.FC<PayViewProps> = ({
                 key={name}
                 type="button"
                 onClick={() => setToAccount(name)}
-                className="text-xs bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg text-blue-500 font-mono"
+                className="text-xs bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-1 rounded-lg text-blue-500 font-mono font-bold"
               >
                 ＋ {name}
               </button>
@@ -193,38 +197,38 @@ export const PayView: React.FC<PayViewProps> = ({
 
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2">
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t.amount}</label>
+            <label className="block text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-1">{t.amount}</label>
             <input
               type="number"
               step="any"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               disabled={isSubmitting}
-              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-lg font-bold font-mono focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-xl font-bold font-mono focus:outline-none focus:border-blue-500"
               placeholder="0.00"
               required
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t.asset}</label>
+            <label className="block text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-1">{t.asset}</label>
             <input
               type="text"
               value={payAsset}
               onChange={(e) => setPayAsset(e.target.value.toUpperCase())}
               disabled={isSubmitting}
-              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-lg font-black uppercase text-center text-blue-600 font-mono focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-xl font-black uppercase text-center text-blue-600 font-mono focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t.memo}</label>
+          <label className="block text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-1">{t.memo}</label>
           <input
             type="text"
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             disabled={isSubmitting}
-            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500"
+            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm md:text-base focus:outline-none focus:border-blue-500"
             placeholder="可选交易备注"
           />
         </div>
@@ -232,7 +236,7 @@ export const PayView: React.FC<PayViewProps> = ({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-bold py-3.5 rounded-2xl transition shadow-lg mt-2 text-sm cursor-pointer"
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-bold py-3.5 rounded-2xl transition shadow-lg mt-2 text-base cursor-pointer"
         >
           {isSubmitting ? '正在处理...' : t.submit}
         </button>
@@ -242,7 +246,7 @@ export const PayView: React.FC<PayViewProps> = ({
       {showPinModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 max-w-xs w-full border border-gray-200 dark:border-gray-700 text-center shadow-2xl">
-            <h4 className="text-md font-bold text-gray-900 dark:text-white mb-2">🔐 {t.pinInputPrompt}</h4>
+            <h4 className="text-base font-bold text-gray-900 dark:text-white mb-2">🔐 {t.pinInputPrompt}</h4>
             <p className="text-xs text-gray-400 mb-4">输入本地安全 PIN 码以完成签名广播</p>
             <form onSubmit={handlePinSubmit} className="space-y-4">
               <input
@@ -251,7 +255,7 @@ export const PayView: React.FC<PayViewProps> = ({
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
                 placeholder="••••••"
-                className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-center text-xl font-mono focus:outline-none focus:border-blue-500"
+                className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-center text-2xl font-mono focus:outline-none focus:border-blue-500"
                 autoFocus
                 required
               />

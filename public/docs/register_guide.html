@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BTSBots 邀请码注册与新用户使用指南</title>
+  <style>
+    :root {
+      --bg: #090d16; --card: #131c2e; --text: #f8fafc; --muted: #94a3b8;
+      --accent: #3b82f6; --accent-hover: #2563eb; --border: #1e293b; --code-bg: #060911;
+      --emerald: #10b981; --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg); color: var(--text); margin: 0; padding: 12px; line-height: 1.7;
+      word-wrap: break-word; overflow-wrap: break-word;
+    }
+    .container {
+      max-width: 960px; margin: 0 auto; background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 32px 24px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
+    }
+    .nav {
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
+      padding-bottom: 16px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+    }
+    .nav-btn {
+      display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 8px 14px; border-radius: 12px;
+      font-size: 13px; font-weight: bold; text-decoration: none; transition: background 0.2s;
+    }
+    .nav-btn:active { background: rgba(59, 130, 246, 0.3); }
+    h1 { font-size: 24px; color: #60a5fa; margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 10px; line-height: 1.3; }
+    h2 { font-size: 18px; color: #34d399; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 32px; }
+    h3 { font-size: 15px; color: #f59e0b; margin-top: 20px; }
+    p { color: #cbd5e1; font-size: 14.5px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: var(--code-bg); color: #38bdf8; padding: 2px 6px; border-radius: 6px; font-size: 13px; border: 1px solid #1e293b; }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border); padding: 14px 16px; border-radius: 14px;
+      overflow-x: auto; margin: 16px 0; -webkit-overflow-scrolling: touch; position: relative;
+    }
+    pre code { background: none; padding: 0; color: #e2e8f0; border: none; font-size: 13px; white-space: pre; }
+    ul, ol { padding-left: 20px; color: #cbd5e1; font-size: 14px; }
+    li { margin-bottom: 8px; }
+    .invite-banner {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 16px; padding: 20px; margin: 20px 0;
+    }
+    .invite-banner h3 { margin-top: 0; color: #38bdf8; }
+    .copy-btn {
+      background: #2563eb; color: #fff; border: none; padding: 8px 16px; border-radius: 10px;
+      font-weight: bold; cursor: pointer; font-size: 13px; transition: background 0.2s; margin-top: 10px;
+    }
+    .copy-btn:hover { background: #1d4ed8; }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+
+    @media (max-width: 640px) {
+      body { padding: 8px; }
+      .container { padding: 20px 16px; border-radius: 16px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16.5px; }
+      h3 { font-size: 14.5px; }
+      p, li { font-size: 13.5px; }
+      .nav { flex-direction: column; align-items: stretch; gap: 8px; }
+      .nav-btn { justify-content: center; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <a href="index.html" class="nav-btn">← 返回文档首页</a>
+      <a href="register_guide_en.html" class="nav-btn">English Version 🌐</a>
+    </div>
+
+    <h1>🎟️ BTSBots 邀请码注册与新手入门指南</h1>
+    <p>欢迎加入 <strong>BTSBots 去中心化生态</strong>！借助比特股区块链的零信任架构与邀请激励网络，您可以拥有完全归属于自己的区块链账户，私钥由您本地直接生成与保管，无需上传给任何中心化服务器。</p>
+
+    <!-- 动态邀请码识别横幅 -->
+    <div id="inviteBanner" class="invite-banner" style="display: none;">
+      <h3>🎉 您的专属注册邀请码已就绪！</h3>
+      <p style="margin: 6px 0;">当前邀请码：<strong id="displayInviteCode" style="font-family: monospace; font-size: 18px; color: #34d399;"></strong></p>
+      <p style="font-size: 13px; color: #94a3b8; margin: 4px 0 10px 0;">已自动为您生成专属的一键注册终端命令：</p>
+      <pre><code id="customCommand"></code></pre>
+      <button class="copy-btn" onclick="copyCommand()">📋 复制一键注册命令</button>
+    </div>
+
+    <hr>
+
+    <h2>🚀 第一步：安装极速 Python 工具 uv</h2>
+    <p>BTSBots 采用现代化的 Python 工具包，建议使用 <code>uv</code> 进行极速安装与依赖同步：</p>
+
+    <pre><code># Linux / macOS 系统一键安装：
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows 系统（PowerShell）：
+powershell -ExecutionUrl https://astral.sh/uv/install.ps1</code></pre>
+
+    <hr>
+
+    <h2>📦 第二步：克隆仓库并初始化环境</h2>
+    <pre><code>git clone https://github.com/pch957/btsbots.git
+cd btsbots
+
+# 使用 uv 一键同步虚拟环境与依赖
+uv sync</code></pre>
+
+    <hr>
+
+    <h2>🔑 第三步：使用邀请码注册全新 BitShares 账号</h2>
+    <p>运行官方注册引导程序，输入邀请码与心仪的账号名：</p>
+
+    <pre><code># 标准注册命令格式：
+uv run registre_account.py --invite &lt;您的邀请码&gt;
+
+# 示例：
+uv run registre_account.py --invite BTS-9A4B8F21</code></pre>
+
+    <ol>
+      <li><strong>本地生成私钥</strong>：程序将在您的本地电脑内存中安全生成 <code>Owner</code>、<code>Active</code>、<code>Memo</code> 三对椭圆曲线密码学公私钥。</li>
+      <li><strong>链上委托注册</strong>：程序将公钥提交至您推荐人的 <code>sign_bots</code> 网关，由推荐人代为向比特股区块链广播开户操作并支付网络注册手续费。</li>
+      <li><strong>生成本地凭证文件</strong>：注册成功后，您的本地同级目录下将自动生成形如 <code>username_credentials.txt</code> 的安全私钥凭证文件。</li>
+    </ol>
+
+    <hr>
+
+    <h2>🛡️ 第四步：凭证管理与安全守护启动</h2>
+    <p>注册完成后，本地生成的凭证文件格式如下：</p>
+    <pre><code>myaccountname
+Owner WIF: 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+Active WIF: 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+Memo WIF: 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3</code></pre>
+
+    <h3>1. 获取 8 位 OTP 登录 Web / App</h3>
+    <pre><code>uv run get_otp.py --keyfile myaccountname_credentials.txt</code></pre>
+    <p>终端将输出一次性动态验证码，直接在网页端输入即可安全登入！</p>
+
+    <h3>2. 启动本地签名守护网关</h3>
+    <pre><code>uv run sign_bots.py --keyfile myaccountname_credentials.txt</code></pre>
+    <p>保持后台守护运行后，您即可在浏览器、手机 App 上随意发起安全转账、限价单交易与分红领取！</p>
+
+    <hr>
+
+    <h2>💡 附：比特股终生分红与推荐机制</h2>
+    <ul>
+      <li><strong>终生分成</strong>：新账户在比特股 DEX 交易所进行的所有交易（手续费返现与分红），其推荐人将终生共享手续费收益。</li>
+      <li><strong>无中心化托管</strong>：所有的分红收益均直接沉淀在比特股链上归属对象（<code>1.13.x</code>）中，您可以随时在 BTSBots 钱包的【🎁 分红】页面一键提取。</li>
+    </ul>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteCode = urlParams.get('invite');
+    if (inviteCode) {
+      document.getElementById('inviteBanner').style.display = 'block';
+      document.getElementById('displayInviteCode').innerText = inviteCode;
+      const cmd = `uv run registre_account.py --invite ${inviteCode}`;
+      document.getElementById('customCommand').innerText = cmd;
+    }
+
+    function copyCommand() {
+      const cmd = document.getElementById('customCommand').innerText;
+      navigator.clipboard.writeText(cmd);
+      alert('已复制一键注册命令到剪贴板！');
+    }
+  </script>
+</body>
+</html>

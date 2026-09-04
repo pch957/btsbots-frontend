@@ -13,7 +13,6 @@ export const Home: React.FC = () => {
 
   // 1. 订阅全局出块心跳、首页聚合数据与核心流水
   useDdpSubscription(DDP_CONFIG.PUBLICATIONS.CHAIN_BLOCK_HEAD_STREAM);
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.HOME_PAGE);
   useDdpSubscription(DDP_CONFIG.PUBLICATIONS.TRANSFER);
   useDdpSubscription(DDP_CONFIG.PUBLICATIONS.FILL_ORDER);
   useDdpSubscription(DDP_CONFIG.PUBLICATIONS.ORDER_HISTORY);
@@ -61,14 +60,14 @@ export const Home: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // 🌟 心跳响应式计时器：每秒更新当前时间戳
+  // 心跳响应式计时器：每秒更新当前时间戳
   const [nowTime, setNowTime] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNowTime(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // 🌟 核心提炼最新高度与时间：优先 global_properties，若为空则自动从最新成交/转账中实时提取
+  // 核心提炼最新高度与时间
   const latestBlockDoc = blockHeadList[0];
   const latestTradeDoc = trades[0];
   const latestTxDoc = transfers[0];
@@ -85,19 +84,19 @@ export const Home: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in pb-16 md:pb-0">
       
-      {/* 顶部出块心跳诊断状态条 (秒级实时联动) */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 text-xs font-semibold shadow-sm">
+      {/* 顶部出块心跳诊断状态条 */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 text-sm font-semibold shadow-sm">
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-2">
             <span
-              className={`w-2.5 h-2.5 rounded-full transition-colors ${isHealthy ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}
+              className={`w-3 h-3 rounded-full transition-colors ${isHealthy ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}
             />
             <span className={`font-bold ${isHealthy ? 'text-emerald-500' : 'text-red-500'}`}>
               {isHealthy ? t.liveSync : t.delayed} {timeDiffSec >= 0 && timeDiffSec < 3600 && `(${timeDiffSec}s)`}
             </span>
           </span>
           <span className="text-gray-300 dark:text-gray-700">|</span>
-          <span>{t.blockNumber}: <strong className="font-mono text-blue-500">#{latestBlockNum}</strong></span>
+          <span>{t.blockNumber}: <strong className="font-mono text-blue-500 text-base">#{latestBlockNum}</strong></span>
           <span className="text-gray-300 dark:text-gray-700">|</span>
           <span className="text-gray-400 font-mono">
             ⏱️ {blockTimeMs ? new Date(blockTimeMs).toLocaleTimeString() : '--:--:--'}
@@ -110,10 +109,10 @@ export const Home: React.FC = () => {
         
         {/* Top Assets */}
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm">
-          <h3 className="text-xs font-bold text-emerald-500 mb-3 uppercase tracking-wider">🏆 {t.topAssets}</h3>
-          <div className="space-y-2">
+          <h3 className="text-sm font-extrabold text-emerald-500 mb-3.5 uppercase tracking-wider">🏆 {t.topAssets}</h3>
+          <div className="space-y-2.5">
             {rankings.topAssets.map((asset, i) => (
-              <div key={parseMongoId(asset._id) || i} className="flex justify-between items-center text-xs py-1">
+              <div key={parseMongoId(asset._id) || i} className="flex justify-between items-center text-sm py-1">
                 <Link to={`/asset/${asset.a}`} className="font-bold text-blue-500 hover:underline">🪙 {asset.a}</Link>
                 <span className="font-mono font-bold text-emerald-500">¥ {asset.v?.toLocaleString()}</span>
               </div>
@@ -123,10 +122,10 @@ export const Home: React.FC = () => {
 
         {/* Top Markets */}
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm">
-          <h3 className="text-xs font-bold text-red-500 mb-3 uppercase tracking-wider">🔥 {t.topMarkets}</h3>
-          <div className="space-y-2">
+          <h3 className="text-sm font-extrabold text-red-500 mb-3.5 uppercase tracking-wider">🔥 {t.topMarkets}</h3>
+          <div className="space-y-2.5">
             {rankings.topMarkets.map((mkt, i) => (
-              <div key={parseMongoId(mkt._id) || i} className="flex justify-between items-center text-xs py-1">
+              <div key={parseMongoId(mkt._id) || i} className="flex justify-between items-center text-sm py-1">
                 <Link to="/market" state={{ jumpPair: `${mkt.a?.[0]}_${mkt.a?.[1]}` }} className="font-bold text-blue-500 hover:underline">
                   ⚡ {mkt.a?.[0]}/{mkt.a?.[1]}
                 </Link>
@@ -138,10 +137,10 @@ export const Home: React.FC = () => {
 
         {/* Top Traders */}
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm">
-          <h3 className="text-xs font-bold text-amber-500 mb-3 uppercase tracking-wider">📈 {t.topTraders}</h3>
-          <div className="space-y-2">
+          <h3 className="text-sm font-extrabold text-amber-500 mb-3.5 uppercase tracking-wider">📈 {t.topTraders}</h3>
+          <div className="space-y-2.5">
             {rankings.topTraders.map((trader, i) => (
-              <div key={parseMongoId(trader._id) || i} className="flex justify-between items-center text-xs py-1">
+              <div key={parseMongoId(trader._id) || i} className="flex justify-between items-center text-sm py-1">
                 <Link to={`/user/${trader.u}`} className="font-bold text-blue-500 hover:underline">👤 {trader.u}</Link>
                 <span className="font-mono font-bold text-amber-500">¥ {trader.v?.toLocaleString()}</span>
               </div>
@@ -156,15 +155,15 @@ export const Home: React.FC = () => {
         
         {/* 全网转账 */}
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col">
-          <h3 className="text-xs font-bold text-emerald-500 mb-3 uppercase tracking-wider">💸 {t.transfers}</h3>
-          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
+          <h3 className="text-sm font-extrabold text-emerald-500 mb-3.5 uppercase tracking-wider">💸 {t.transfers}</h3>
+          <div className="grid grid-cols-12 text-xs text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
             <span className="col-span-4">{t.sender}</span>
             <span className="col-span-4">{t.receiver}</span>
             <span className="col-span-4 text-right">{t.amount}</span>
           </div>
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+          <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
             {transfers.map(tx => (
-              <div key={parseMongoId(tx._id)} className="grid grid-cols-12 text-xs py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
+              <div key={parseMongoId(tx._id)} className="grid grid-cols-12 text-sm py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
                 <Link to={`/user/${tx.u?.[0]}`} className="col-span-4 truncate text-blue-500 hover:underline">{tx.u?.[0]}</Link>
                 <Link to={`/user/${tx.u?.[1]}`} className="col-span-4 truncate text-gray-400 hover:underline">➔ {tx.u?.[1]}</Link>
                 <span className="col-span-4 text-right text-emerald-500 font-bold">{tx.b} <Link to={`/asset/${tx.a}`} className="hover:underline">{tx.a}</Link></span>
@@ -175,18 +174,18 @@ export const Home: React.FC = () => {
 
         {/* 最新撮合成交 */}
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col">
-          <h3 className="text-xs font-bold text-blue-500 mb-3 uppercase tracking-wider">🛒 {t.recentMatches}</h3>
-          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
+          <h3 className="text-sm font-extrabold text-blue-500 mb-3.5 uppercase tracking-wider">🛒 {t.recentMatches}</h3>
+          <div className="grid grid-cols-12 text-xs text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
             <span className="col-span-5">{t.pair}</span>
             <span className="col-span-4 text-right">{t.price}</span>
             <span className="col-span-3 text-right">{t.amount}</span>
           </div>
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+          <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
             {trades.map(tr => {
               const pairName = tr.a?.join('/') || tr.m?.replace('_', '/') || '---';
               const routePair = tr.a ? `${tr.a[0]}_${tr.a[1]}` : (tr.m || '');
               return (
-                <div key={parseMongoId(tr._id)} className="grid grid-cols-12 text-xs py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
+                <div key={parseMongoId(tr._id)} className="grid grid-cols-12 text-sm py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
                   <button
                     onClick={() => navigate('/market', { state: { jumpPair: routePair } })}
                     className="col-span-5 text-left text-blue-500 hover:underline truncate cursor-pointer font-bold"
@@ -203,17 +202,17 @@ export const Home: React.FC = () => {
 
         {/* 全网委托记录 */}
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm flex flex-col">
-          <h3 className="text-xs font-bold text-amber-500 mb-3 uppercase tracking-wider">📋 {t.orderIntents}</h3>
-          <div className="grid grid-cols-12 text-[11px] text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
+          <h3 className="text-sm font-extrabold text-amber-500 mb-3.5 uppercase tracking-wider">📋 {t.orderIntents}</h3>
+          <div className="grid grid-cols-12 text-xs text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 pb-2 mb-2">
             <span className="col-span-4">{t.trader}</span>
             <span className="col-span-3 text-center">{t.action}</span>
             <span className="col-span-5 text-right">{t.pair}</span>
           </div>
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+          <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
             {orderHistory.map(oh => {
               const routePair = oh.m || (Array.isArray(oh.a) ? `${oh.a[0]}_${oh.a[1]}` : '');
               return (
-                <div key={parseMongoId(oh._id)} className="grid grid-cols-12 text-xs py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
+                <div key={parseMongoId(oh._id)} className="grid grid-cols-12 text-sm py-1 items-center border-b border-gray-100 dark:border-gray-800/40 font-mono">
                   <Link to={`/user/${oh.u}`} className="col-span-4 truncate text-blue-500 hover:underline">{oh.u}</Link>
                   <span className={`col-span-3 text-center font-bold ${oh.t === 1 ? 'text-emerald-500' : 'text-red-500'}`}>
                     {oh.t === 1 ? t.placeOrder : t.cancelOrder}

@@ -5,7 +5,7 @@
 const PIN_STORAGE_KEY = 'btsbots_local_pin_hash';
 const LOCK_STATE_KEY = 'btsbots_is_wallet_locked';
 const LAST_ACTIVE_KEY = 'btsbots_last_activity_time';
-export const AUTO_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5分钟
+export const AUTO_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5分钟超时
 
 async function sha256Hash(plainText: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(plainText);
@@ -37,18 +37,23 @@ export const PinLockManager = {
 
   async verifyPin(inputPin: string): Promise<boolean> {
     const savedHash = localStorage.getItem(PIN_STORAGE_KEY);
-    if (!savedHash) return true;
+    if (!savedHash) {
+      // 未设置 PIN 码则无需校验
+      return false;
+    }
     const inputHash = await sha256Hash(inputPin.trim());
     return inputHash === savedHash;
   },
 
   isLocked(): boolean {
     if (!this.hasPinSet()) return false;
-    // 1. 如果显式标记锁定
+    
+    // 显式标记锁定
     if (localStorage.getItem(LOCK_STATE_KEY) === 'true') {
       return true;
     }
-    // 2. 检查离线/熄屏时间是否超过5分钟
+    
+    // 检查超时
     const elapsed = Date.now() - this.getLastActivity();
     if (elapsed >= AUTO_LOCK_TIMEOUT_MS) {
       this.setLocked(true);
@@ -58,6 +63,7 @@ export const PinLockManager = {
   },
 
   setLocked(locked: boolean): void {
+    if (!this.hasPinSet()) return;
     localStorage.setItem(LOCK_STATE_KEY, locked ? 'true' : 'false');
     if (!locked) {
       this.updateActivity();

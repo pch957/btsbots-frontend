@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from '../../components/Navbar';
 import { LockOverlay } from '../../components/LockOverlay';
 import { AutoLockProvider } from '../../components/AutoLockProvider';
@@ -17,12 +17,37 @@ import { signerInstance } from '../../lib/crypto/signer';
 import { ddpPool } from '../../lib/ddp/ddpSubPool';
 import { DDP_CONFIG } from '../../config/ddpConfig';
 import { useAuth } from '../../hooks/useAuth';
-import { useI18n } from '../../lib/i18n';
 import type { OAuthChallengeData } from '../../types/wallet';
 
+function TitleUpdater() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/') {
+      document.title = 'BTSBots Market - 首页';
+    } else if (path.startsWith('/market')) {
+      document.title = 'BTSBots Market - 交易';
+    } else if (path.startsWith('/asset')) {
+      document.title = 'BTSBots Market - 资产';
+    } else if (path.startsWith('/user')) {
+      document.title = 'BTSBots Market - 账户';
+    } else if (path.startsWith('/pay')) {
+      document.title = 'BTSBots Market - 转账';
+    } else if (path.startsWith('/settings')) {
+      document.title = 'BTSBots Market - 设置';
+    } else if (path.startsWith('/auth')) {
+      document.title = 'BTSBots Market - 登录';
+    } else {
+      document.title = 'BTSBots Market';
+    }
+  }, [location]);
+
+  return null;
+}
+
 function MarketContent() {
-  const { t } = useI18n();
-  const { currentAccount, isResuming } = useAuth();
+  const { currentAccount } = useAuth();
   const navigate = useNavigate();
   const [isLocked, setIsLocked] = useState(PinLockManager.isLocked());
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -80,27 +105,24 @@ function MarketContent() {
 
       await ddpPool.call(DDP_CONFIG.METHODS.SUBMIT_OAUTH_AUTHORIZATION, envelope);
       alert('🔐 身份所有权证书签署成功！');
-      if (oauthData.redirect) {
-        window.location.href = `${oauthData.redirect}?token=${oauthData.token}`;
-      }
+      
+      const targetRedirect = oauthData.redirect;
+      const token = oauthData.token;
       setOauthData(null);
+
+      if (targetRedirect) {
+        window.location.href = `${targetRedirect}?token=${token}`;
+      } else if (window.opener) {
+        window.close();
+      }
     } catch (err: any) {
       alert(`授权加签失败: ${err.message}`);
     }
   };
 
-  if (isResuming) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center font-mono text-xs text-gray-400 gap-3">
-        <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <span>{t.securingSession}</span>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors pb-16 md:pb-0">
-      
+      <TitleUpdater />
       <AutoLockProvider onLock={() => setIsLocked(true)} />
       <LockOverlay isOpen={isLocked} onUnlocked={() => setIsLocked(false)} />
 

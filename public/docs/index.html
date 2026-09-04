@@ -16,9 +16,10 @@
       --accent-cyan: #06b6d4;
       --accent-emerald: #10b981;
       --accent-amber: #f59e0b;
+      --accent-purple: #a855f7;
     }
 
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -37,19 +38,17 @@
     .container {
       max-width: 1080px;
       margin: 0 auto;
-      padding: 48px 24px;
+      padding: 40px 20px;
       width: 100%;
       flex: 1;
     }
 
-    /* 顶部 Hero 区域 */
     .hero {
       text-align: center;
-      margin-bottom: 56px;
-      position: relative;
+      margin-bottom: 48px;
     }
 
-    .badge {
+    .hero-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -60,40 +59,95 @@
       border-radius: 9999px;
       font-size: 13px;
       font-weight: 700;
-      margin-bottom: 20px;
-      backdrop-filter: blur(8px);
+      margin-bottom: 16px;
     }
 
     .hero h1 {
-      font-size: 38px;
+      font-size: 36px;
       font-weight: 900;
       letter-spacing: -0.02em;
-      margin: 0 0 16px 0;
+      margin: 0 0 12px 0;
       background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
     .hero p {
-      font-size: 16px;
+      font-size: 15px;
       color: var(--text-sub);
-      max-width: 640px;
-      margin: 0 auto;
+      max-width: 680px;
+      margin: 0 auto 28px auto;
       line-height: 1.6;
     }
 
-    /* 文档卡片网格 */
+    .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 40px;
+    }
+
+    .link-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(8px);
+    }
+
+    .link-github {
+      background: rgba(255, 255, 255, 0.05);
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .link-github:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .link-app {
+      background: rgba(168, 85, 247, 0.12);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
+    .link-app:hover {
+      background: rgba(168, 85, 247, 0.25);
+      border-color: rgba(168, 85, 247, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .link-python {
+      background: rgba(245, 158, 11, 0.12);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .link-python:hover {
+      background: rgba(245, 158, 11, 0.25);
+      border-color: rgba(245, 158, 11, 0.5);
+      transform: translateY(-2px);
+    }
+
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 28px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
     }
 
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 24px;
-      padding: 32px;
+      border-radius: 22px;
+      padding: 24px;
       backdrop-filter: blur(12px);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
@@ -112,6 +166,7 @@
       transition: background 0.3s;
     }
 
+    .card-register::before { background: linear-gradient(90deg, #ec4899, #f43f5e); }
     .card-user::before { background: linear-gradient(90deg, #3b82f6, #06b6d4); }
     .card-oauth::before { background: linear-gradient(90deg, #10b981, #059669); }
     .card-pay::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
@@ -123,38 +178,39 @@
     }
 
     .card-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
-      margin-bottom: 20px;
+      font-size: 22px;
+      margin-bottom: 18px;
     }
 
+    .icon-register { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
     .icon-user { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
     .icon-oauth { background: rgba(16, 185, 129, 0.15); color: #34d399; }
     .icon-pay { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
 
     .card h2 {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 800;
-      margin: 0 0 12px 0;
+      margin: 0 0 10px 0;
       color: var(--text-main);
     }
 
     .card p {
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text-sub);
-      line-height: 1.65;
-      margin: 0 0 28px 0;
+      line-height: 1.6;
+      margin: 0 0 20px 0;
       flex: 1;
     }
 
     .card-actions {
       display: flex;
-      gap: 12px;
+      gap: 8px;
     }
 
     .btn {
@@ -162,29 +218,25 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 12px;
-      border-radius: 14px;
-      font-size: 13px;
+      padding: 10px;
+      border-radius: 12px;
+      font-size: 12px;
       font-weight: 700;
       text-decoration: none;
       transition: all 0.2s;
-    }
-
-    .btn-primary {
       background: rgba(255, 255, 255, 0.06);
       color: var(--text-main);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .btn-primary:hover {
+    .btn:hover {
       background: rgba(255, 255, 255, 0.12);
       border-color: rgba(255, 255, 255, 0.25);
     }
 
     .footer {
       text-align: center;
-      padding: 32px 24px;
+      padding: 32px 20px;
       border-top: 1px solid var(--card-border);
       color: var(--text-sub);
       font-size: 13px;
@@ -199,6 +251,13 @@
     .footer a:hover {
       text-decoration: underline;
     }
+
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 26px; }
+      .hero p { font-size: 13.5px; }
+      .quick-links { flex-direction: column; align-items: stretch; }
+      .link-pill { justify-content: center; }
+    }
   </style>
 </head>
 <body>
@@ -207,26 +266,51 @@
     
     <!-- Hero 头部 -->
     <div class="hero">
-      <div class="badge">
+      <div class="hero-badge">
         <span>⚡</span> BTSBots Knowledge Base
       </div>
       <h1>开发与使用文档中心</h1>
-      <p>探索 BTSBots 去中心化零信任架构、密钥沙盒保护机制、OAuth DID 身份认证与链上支付接入指南。</p>
+      <p>探索 BTSBots 去中心化零信任架构、密钥沙盒保护机制、OAuth DID 身份认证、邀请码注册与链上支付接入指南。</p>
+
+      <div class="quick-links">
+        <a href="https://github.com/pch957/btsbots-frontend" target="_blank" rel="noopener noreferrer" class="link-pill link-github">
+          <span>🐙</span> 前端/客户端源码 (GitHub)
+        </a>
+        <a href="https://github.com/pch957/btsbots-frontend/releases" target="_blank" rel="noopener noreferrer" class="link-pill link-app">
+          <span>📲</span> 下载桌面/手机 App (Releases)
+        </a>
+        <a href="https://github.com/pch957/btsbots" target="_blank" rel="noopener noreferrer" class="link-pill link-python">
+          <span>🐍</span> Python 签名/网关源码 (GitHub)
+        </a>
+      </div>
     </div>
 
     <!-- 网格卡片区域 -->
     <div class="grid">
       
+      <!-- 卡片 0: 邀请码注册指南 -->
+      <div class="card card-register">
+        <div>
+          <div class="card-icon icon-register">🎟️</div>
+          <h2>邀请码注册指南</h2>
+          <p>受邀新用户使用邀请码一键免手续费开户、在本地离线生成私钥、以及启动签名守护登录指南。</p>
+        </div>
+        <div class="card-actions">
+          <a href="register_guide.html" class="btn">🇨🇳 中文指南</a>
+          <a href="register_guide_en.html" class="btn">🇺🇸 English</a>
+        </div>
+      </div>
+
       <!-- 卡片 1: 用户手册 -->
       <div class="card card-user">
         <div>
           <div class="card-icon icon-user">📖</div>
           <h2>用户使用手册</h2>
-          <p>详解 Web 端无私钥架构、Python 进程沙盒、<code>pass</code> 密码管理器集成、8 位 OTP 登录与自动化风控策略配置。</p>
+          <p>详解 Web 端无私钥架构、Python 进程沙盒、<code>pass</code> 密码管理器、8 位 OTP 登录与自动化风控策略。</p>
         </div>
         <div class="card-actions">
-          <a href="user_manual.html" class="btn btn-primary">🇨🇳 中文手册</a>
-          <a href="user_manual_en.html" class="btn btn-primary">🇺🇸 English</a>
+          <a href="user_manual.html" class="btn">🇨🇳 中文手册</a>
+          <a href="user_manual_en.html" class="btn">🇺🇸 English</a>
         </div>
       </div>
 
@@ -238,8 +322,8 @@
           <p>第三方商户接入去中心化身份 (DID) 验证指南。支持 <code>biz_proxy.py</code> 代理网关与自定义 Web API 椭圆曲线验签。</p>
         </div>
         <div class="card-actions">
-          <a href="oauth_guide.html" class="btn btn-primary">🇨🇳 中文手册</a>
-          <a href="oauth_guide_en.html" class="btn btn-primary">🇺🇸 English</a>
+          <a href="oauth_guide.html" class="btn">🇨🇳 中文手册</a>
+          <a href="oauth_guide_en.html" class="btn">🇺🇸 English</a>
         </div>
       </div>
 
@@ -251,8 +335,8 @@
           <p>商户接入比特股区块链零手续费、秒级确认加密货币支付。包含带前缀 Memo 路由、<code>biz_rules.json</code> 配置与自动履约。</p>
         </div>
         <div class="card-actions">
-          <a href="payment_guide.html" class="btn btn-primary">🇨🇳 中文手册</a>
-          <a href="payment_guide_en.html" class="btn btn-primary">🇺🇸 English</a>
+          <a href="payment_guide.html" class="btn">🇨🇳 中文手册</a>
+          <a href="payment_guide_en.html" class="btn">🇺🇸 English</a>
         </div>
       </div>
 
@@ -261,8 +345,12 @@
   </div>
 
   <div class="footer">
-    <p>BTSBots Decentralized Ecosystem &copy; 2026 | Open Source Repository: <a href="https://github.com/pch957/btsbots" target="_blank">pch957/btsbots</a></p>
-    <p style="margin-top: 8px;"><a href="../">➔ 返回 BTSBots Web 应用</a></p>
+    <p>BTSBots Decentralized Ecosystem &copy; 2026 | Project Repositories:</p>
+    <p style="margin-top: 6px;">
+      <a href="https://github.com/pch957/btsbots-frontend" target="_blank">btsbots-frontend</a> &bull; 
+      <a href="https://github.com/pch957/btsbots" target="_blank">btsbots-python</a>
+    </p>
+    <p style="margin-top: 12px;"><a href="../">➔ 返回 BTSBots Web 应用</a></p>
   </div>
 
 </body>

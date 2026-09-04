@@ -1,32 +1,52 @@
-import { useState, useEffect } from 'react';
-
-const BLACKLIST_STORAGE_KEY = 'btsbots_wallet_account_blacklist';
+import { useState, useEffect, useCallback } from 'react';
+import { ddpPool } from '../lib/ddp/ddpSubPool';
+import { DDP_CONFIG } from '../config/ddpConfig';
+import { useAuth } from './useAuth';
 
 export function useBlacklist() {
-  const [blacklist, setBlacklist] = useState<string[]>(() => {
+  const { isLoggedIn } = useAuth();
+  const [blacklist, setBlacklist] = useState<string[]>([]);
+
+  const fetchCloudBlacklist = useCallback(async () => {
+    if (!isLoggedIn) return;
     try {
-      const val = localStorage.getItem(BLACKLIST_STORAGE_KEY);
-      return val ? JSON.parse(val) : [];
-    } catch {
-      return [];
+      const res = await ddpPool.call<{ blockedUsers?: string[] }>(DDP_CONFIG.METHODS.GET_MY_ASSET_SETTINGS);
+      if (res && Array.isArray(res.blockedUsers)) {
+        setBlacklist(res.blockedUsers);
+      }
+    } catch (err) {
+      console.warn('[Blacklist] 获取云端黑名单失败:', err);
     }
-  });
+  }, [isLoggedIn]);
 
   useEffect(() => {
-    localStorage.setItem(BLACKLIST_STORAGE_KEY, JSON.stringify(blacklist));
-  }, [blacklist]);
+    fetchCloudBlacklist();
+  }, [fetchCloudBlacklist]);
 
-  const addToBlacklist = (account: string) => {
+  const addToBlacklist = async (account: string) => {
     const clean = account.trim().toLowerCase();
-    if (!clean) return;
-    if (!blacklist.includes(clean)) {
-      setBlacklist(prev => [...prev, clean]);
+    if (!clean || blacklist.includes(clean)) return;
+
+    setBlacklist(prev => [...prev, clean]);
+    if (isLoggedIn) {
+      try {
+        await ddpPool.call(DDP_CONFIG.METHODS.TOGGLE_ACCOUNT_BLACKLIST, clean, true);
+      } catch (err) {
+        console.error('[Blacklist] 添加黑名单失败:', err);
+      }
     }
   };
 
-  const removeFromBlacklist = (account: string) => {
+  const removeFromBlacklist = async (account: string) => {
     const clean = account.trim().toLowerCase();
     setBlacklist(prev => prev.filter(a => a !== clean));
+    if (isLoggedIn) {
+      try {
+        await ddpPool.call(DDP_CONFIG.METHODS.TOGGLE_ACCOUNT_BLACKLIST, clean, false);
+      } catch (err) {
+        console.error('[Blacklist] 移除黑名单失败:', err);
+      }
+    }
   };
 
   const isBlacklisted = (account: string): boolean => {
@@ -37,6 +57,7 @@ export function useBlacklist() {
     blacklist,
     addToBlacklist,
     removeFromBlacklist,
-    isBlacklisted
+    isBlacklisted,
+    reloadBlacklist: fetchCloudBlacklist
   };
 }

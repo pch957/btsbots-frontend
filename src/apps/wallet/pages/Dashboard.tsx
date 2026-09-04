@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useI18n } from '../../../lib/i18n';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDdpSubscription } from '../../../hooks/useDdpSubscription';
 import { useCollection } from '../../../hooks/useCollection';
 import { useBlacklist } from '../../../hooks/useBlacklist';
 import { DDP_CONFIG } from '../../../config/ddpConfig';
-import { parseMongoId, parseMongoTime, formatFullDateTime, type BalanceDoc, type TransferDoc, type TrustAssetDoc, type UserAssetSettingsDoc, type WalletPaymentMetadataDoc } from '../../../types/models';
+import { parseMongoId, parseMongoTime, formatFullDateTime, type BalanceDoc, type TransferDoc, type WalletPaymentMetadataDoc } from '../../../types/models';
 import { ddpPool } from '../../../lib/ddp/ddpSubPool';
 
 interface DashboardProps {
@@ -22,16 +22,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const { isBlacklisted } = useBlacklist();
 
   // 挂载数据订阅
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.LOGIN_BALANCE);
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.USER_PAGE, currentAccount);
+  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.BALANCE, { u: currentAccount });
   useDdpSubscription(DDP_CONFIG.PUBLICATIONS.TRANSFER, { u: currentAccount });
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.TRUST_ASSETS);
-  useDdpSubscription(DDP_CONFIG.PUBLICATIONS.MY_ASSET_SETTINGS);
   useDdpSubscription(DDP_CONFIG.PUBLICATIONS.MY_PAYMENT_METADATA);
 
   const rawBalances = useCollection<BalanceDoc>(DDP_CONFIG.COLLECTIONS.BALANCE, b => b.u === currentAccount);
-  const trustAssets = useCollection<TrustAssetDoc>(DDP_CONFIG.COLLECTIONS.TRUST_ASSET);
-  const settingsList = useCollection<UserAssetSettingsDoc>(DDP_CONFIG.COLLECTIONS.USER_ASSET_SETTINGS);
   const metadataList = useCollection<WalletPaymentMetadataDoc>(DDP_CONFIG.COLLECTIONS.WALLET_PAYMENT_METADATA);
   const rawTransfers = useCollection<TransferDoc>(
     DDP_CONFIG.COLLECTIONS.TRANSFER,
@@ -39,12 +34,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
     (a, b) => parseMongoTime(b.T) - parseMongoTime(a.T)
   );
 
-  const settings = settingsList[0];
-  const hiddenAssets = settings?.hiddenAssets || [];
-  const allowedAssets = settings?.allowedAssets || [];
+  // 改用 RPC 拉取评级与用户资产设定
+  const [ratingMap, setRatingMap] = useState<Record<string, number>>({});
+  const [allowedAssets, setAllowedAssets] = useState<string[]>([]);
+  const [hiddenAssets, setHiddenAssets] = useState<string[]>([]);
 
-  const ratingMap: Record<string, number> = {};
-  trustAssets.forEach(item => { ratingMap[item.asset.toUpperCase()] = Number(item.rating || 0); });
+  useEffect(() => {
+    const fetchAssetData = async () => {
+      try {
+        const [trustList, settings] = await Promise.all([
+          ddpPool.call<Array<{ asset: string; rating: number }>>(DDP_CONFIG.METHODS.GET_TRUST_ASSETS),
+          ddpPool.call<{ allowedAssets?: string[]; hiddenAssets?: string[] }>(DDP_CONFIG.METHODS.GET_MY_ASSET_SETTINGS)
+        ]);
+
+        if (trustList) {
+          const map: Record<string, number> = {};
+          trustList.forEach(item => { map[item.asset.toUpperCase()] = Number(item.rating || 0); });
+          setRatingMap(map);
+        }
+
+        if (settings) {
+          setAllowedAssets(settings.allowedAssets || []);
+          setHiddenAssets(settings.hiddenAssets || []);
+        }
+      } catch (e) {
+        console.warn('[Dashboard] RPC 拉取资产设定失败:', e);
+      }
+    };
+    fetchAssetData();
+  }, []);
 
   const processedBalances = rawBalances
     .map(b => {
@@ -88,17 +106,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
     })
     .filter(Boolean);
 
-  const handleHideAsset = (symbol: string) => {
-    ddpPool.call(DDP_CONFIG.METHODS.TOGGLE_ASSET_VISIBILITY, symbol, false);
+  const handleHideAsset = async (symbol: string) => {
+    await ddpPool.call(DDP_CONFIG.METHODS.SET_ASSET_VISIBILITY, symbol, -1);
+    setHiddenAssets(prev => [...prev, symbol.toUpperCase()]);
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto animate-fade-in">
+    <div className="space-y-6 max-w-4xl mx-auto animate-fade-in text-sm pb-16 md:pb-0">
       
-      {/* 资产面板 (主页设置按钮已移除，统一收纳至导航菜单) */}
+      {/* 资产面板 */}
       <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 md:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-md font-bold text-blue-600 dark:text-blue-400">💰 {t.balance}</h3>
+          <h3 className="text-base font-bold text-blue-600 dark:text-blue-400">💰 {t.balance}</h3>
           <button
             onClick={onOpenReceive}
             className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-xl border border-emerald-500/20 cursor-pointer font-bold"
@@ -111,13 +130,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {processedBalances.length === 0 ? (
             <p className="text-xs text-gray-400 py-6 text-center">{t.noAsset}</p>
           ) : processedBalances.map(b => (
-            <div key={parseMongoId(b._id)} className="py-3 flex justify-between items-center">
-              <span className="font-extrabold text-gray-900 dark:text-white font-mono">★ {b.a}</span>
+            <div key={parseMongoId(b._id)} className="py-2.5 flex justify-between items-center">
+              <span className="font-extrabold text-sm text-gray-900 dark:text-white font-mono">★ {b.a}</span>
               <div className="flex items-center gap-3">
-                <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{b.f.toLocaleString()}</span>
+                <span className="font-mono font-bold text-sm text-gray-800 dark:text-gray-100">{b.f.toLocaleString()}</span>
                 <button
                   onClick={() => handleHideAsset(b.a)}
-                  className="text-[11px] text-red-500 bg-red-500/10 px-2.5 py-1 rounded-lg cursor-pointer"
+                  className="text-[11px] text-red-500 bg-red-500/10 px-2 py-1 rounded cursor-pointer font-bold"
                 >
                   {t.hide}
                 </button>
@@ -127,9 +146,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* 历史流水面板 (移除了拉黑操作列，时间鼠标放上去显示具体年月日) */}
+      {/* 历史流水面板 */}
       <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 md:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-        <h3 className="text-md font-bold mb-4 text-gray-800 dark:text-gray-200">📜 {t.history}</h3>
+        <h3 className="text-base font-bold mb-3 text-gray-800 dark:text-gray-200">📜 {t.history}</h3>
         
         {pairedTransfers.length === 0 ? (
           <p className="text-xs text-gray-400 py-6 text-center">{t.noHistory}</p>
@@ -137,20 +156,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs text-gray-700 dark:text-gray-300">
               <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700 text-gray-400 text-[11px]">
-                  <th className="py-3">Type</th>
-                  <th className="py-3">Counterparty</th>
-                  <th className="py-3">Amount</th>
-                  <th className="py-3 text-right">Time</th>
+                <tr className="border-b border-gray-200 dark:border-gray-700 text-gray-400 font-bold">
+                  <th className="py-2.5">Type</th>
+                  <th className="py-2.5">Counterparty</th>
+                  <th className="py-2.5">Amount</th>
+                  <th className="py-2.5 text-right">Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 font-mono">
                 {pairedTransfers.map(tx => (
                   <tr key={parseMongoId(tx!._id)} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition">
-                    <td className={`py-3 font-extrabold ${tx!.isOut ? 'text-red-500' : 'text-emerald-500'}`}>
+                    <td className={`py-2.5 font-extrabold ${tx!.isOut ? 'text-red-500' : 'text-emerald-500'}`}>
                       {tx!.isOut ? 'OUT ➔' : 'IN 🠔'}
                     </td>
-                    <td className="py-3">
+                    <td className="py-2.5">
                       <button
                         type="button"
                         onClick={() => onSelectCounterparty(tx!.counterparty)}
@@ -158,7 +177,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       >
                         {tx!.counterparty}
                       </button>
-                      <div className="flex flex-wrap gap-1 mt-1">
+                      <div className="flex flex-wrap gap-1 mt-0.5">
                         {tx!.plainMemo && (
                           <span className="text-[10px] font-sans bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700">
                             🗒️ {tx!.plainMemo}
@@ -171,8 +190,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="py-3 font-bold">{tx!.b} {tx!.a}</td>
-                    <td className="py-3 text-right text-gray-400 text-[11px]" title={formatFullDateTime(tx!.T)}>
+                    <td className="py-2.5 font-bold">{tx!.b} {tx!.a}</td>
+                    <td className="py-2.5 text-right text-gray-400 text-[11px]" title={formatFullDateTime(tx!.T)}>
                       {new Date(parseMongoTime(tx!.T)).toLocaleTimeString()}
                     </td>
                   </tr>

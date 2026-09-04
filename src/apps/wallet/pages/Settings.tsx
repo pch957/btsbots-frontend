@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useI18n } from '../../../lib/i18n';
-import { useCollection } from '../../../hooks/useCollection';
 import { useBlacklist } from '../../../hooks/useBlacklist';
 import { DDP_CONFIG } from '../../../config/ddpConfig';
-import type { UserAssetSettingsDoc } from '../../../types/models';
 import { ddpPool } from '../../../lib/ddp/ddpSubPool';
 import { PinLockManager } from '../../../lib/crypto/pinLock';
 
@@ -15,31 +13,52 @@ export const SettingsView: React.FC = () => {
   const [pinInput, setPinInput] = useState('');
   const [hasPin, setHasPin] = useState(PinLockManager.hasPinSet());
 
-  const settingsList = useCollection<UserAssetSettingsDoc>(DDP_CONFIG.COLLECTIONS.USER_ASSET_SETTINGS);
-  const settings = settingsList[0];
-  const allowedAssets = settings?.allowedAssets || [];
-  const hiddenAssets = settings?.hiddenAssets || [];
-
+  const [allowedAssets, setAllowedAssets] = useState<string[]>([]);
+  const [hiddenAssets, setHiddenAssets] = useState<string[]>([]);
   const { blacklist, addToBlacklist, removeFromBlacklist } = useBlacklist();
 
-  const handleAddWhitelist = (e: React.FormEvent) => {
+  // 主动通过 RPC 获取用户配置
+  const fetchSettings = async () => {
+    try {
+      const res = await ddpPool.call(DDP_CONFIG.METHODS.GET_MY_ASSET_SETTINGS);
+      if (res) {
+        setAllowedAssets(res.allowedAssets || []);
+        setHiddenAssets(res.hiddenAssets || []);
+      }
+    } catch (err) {
+      console.warn('[Settings] 加载设置失败:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const handleAddWhitelist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWhiteAsset.trim()) return;
-    ddpPool.call(DDP_CONFIG.METHODS.TOGGLE_ASSET_VISIBILITY, newWhiteAsset.toUpperCase().trim(), true);
+    await ddpPool.call(DDP_CONFIG.METHODS.SET_ASSET_VISIBILITY, newWhiteAsset.toUpperCase().trim(), 1);
     setNewWhiteAsset('');
+    fetchSettings();
   };
 
-  const handleAddAssetBlacklist = (e: React.FormEvent) => {
+  const handleAddAssetBlacklist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBlackAsset.trim()) return;
-    ddpPool.call(DDP_CONFIG.METHODS.TOGGLE_ASSET_VISIBILITY, newBlackAsset.toUpperCase().trim(), false);
+    await ddpPool.call(DDP_CONFIG.METHODS.SET_ASSET_VISIBILITY, newBlackAsset.toUpperCase().trim(), -1);
     setNewBlackAsset('');
+    fetchSettings();
   };
 
-  const handleAddBlacklist = (e: React.FormEvent) => {
+  const handleRemoveAssetSetting = async (asset: string) => {
+    await ddpPool.call(DDP_CONFIG.METHODS.SET_ASSET_VISIBILITY, asset, 0);
+    fetchSettings();
+  };
+
+  const handleAddBlacklist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBlackUser.trim()) return;
-    addToBlacklist(newBlackUser.trim());
+    await addToBlacklist(newBlackUser.trim());
     setNewBlackUser('');
   };
 
@@ -63,11 +82,11 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in text-sm pb-16 md:pb-0">
       
-      {/* 🌟 1. 账号黑名单 (置顶排在最前) */}
-      <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-        <h3 className="text-md font-bold text-gray-900 dark:text-white mb-2">🚫 {t.accountBlacklist}</h3>
+      {/* 1. 账号黑名单 */}
+      <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 md:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">🚫 {t.accountBlacklist}</h3>
         <p className="text-xs text-gray-500 mb-4">{t.blacklistDesc}</p>
 
         <form onSubmit={handleAddBlacklist} className="flex gap-2 mb-4 max-w-md">
@@ -76,11 +95,11 @@ export const SettingsView: React.FC = () => {
             placeholder="输入要屏蔽的 BitShares 账号名..."
             value={newBlackUser}
             onChange={(e) => setNewBlackUser(e.target.value)}
-            className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-2.5 text-xs font-mono focus:outline-none focus:border-blue-500"
+            className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-blue-500"
           />
           <button
             type="submit"
-            className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2.5 rounded-2xl text-xs transition cursor-pointer"
+            className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-2xl text-xs transition cursor-pointer"
           >
             {t.addBtn}
           </button>
@@ -106,9 +125,9 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* 🌟 2. 本地 PIN 锁屏管理 */}
-      <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-        <h3 className="text-md font-bold text-gray-900 dark:text-white mb-2">🛡️ {t.pinSetupTitle}</h3>
+      {/* 2. 本地 PIN 锁屏管理 */}
+      <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 md:p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">🛡️ {t.pinSetupTitle}</h3>
         <p className="text-xs text-gray-500 mb-4">{t.pinSetupDesc}</p>
         
         <form onSubmit={handleSavePin} className="space-y-3 max-w-sm">
@@ -118,7 +137,7 @@ export const SettingsView: React.FC = () => {
             placeholder={t.pinPlaceholder}
             value={pinInput}
             onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
-            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-center text-lg font-bold font-mono focus:outline-none focus:border-blue-500"
+            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-2.5 text-center text-lg font-bold font-mono focus:outline-none focus:border-blue-500"
           />
           <div className="flex gap-2">
             <button
@@ -140,12 +159,12 @@ export const SettingsView: React.FC = () => {
         </form>
       </div>
 
-      {/* 🌟 3. 资产白名单 & 资产黑名单 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* 3. 资产白名单 & 资产黑名单 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
-        {/* 资产白名单 */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-          <h3 className="text-md font-bold text-gray-900 dark:text-white mb-2">⚙️ {t.assetWhitelist}</h3>
+        {/* 白名单 */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+          <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">⚙️ {t.assetWhitelist}</h3>
           <p className="text-xs text-gray-500 mb-4">{t.whitelistDesc}</p>
           
           <form onSubmit={handleAddWhitelist} className="flex gap-2 mb-4">
@@ -154,11 +173,11 @@ export const SettingsView: React.FC = () => {
               placeholder="e.g. USDT"
               value={newWhiteAsset}
               onChange={(e) => setNewWhiteAsset(e.target.value)}
-              className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-2.5 text-xs font-mono uppercase focus:outline-none focus:border-blue-500"
+              className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-3.5 py-2 text-xs font-mono uppercase focus:outline-none focus:border-blue-500"
             />
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-2xl text-xs transition cursor-pointer"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-2xl text-xs transition cursor-pointer"
             >
               {t.addBtn}
             </button>
@@ -170,7 +189,7 @@ export const SettingsView: React.FC = () => {
                 <span>{asset}</span>
                 <button
                   type="button"
-                  onClick={() => ddpPool.call(DDP_CONFIG.METHODS.TOGGLE_ASSET_VISIBILITY, asset, false)}
+                  onClick={() => handleRemoveAssetSetting(asset)}
                   className="text-red-500 font-bold ml-1 cursor-pointer"
                 >
                   ✕
@@ -180,9 +199,9 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* 资产黑名单 */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-          <h3 className="text-md font-bold text-gray-900 dark:text-white mb-2">🚫 {t.assetBlacklist}</h3>
+        {/* 黑名单 */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+          <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">🚫 {t.assetBlacklist}</h3>
           <p className="text-xs text-gray-500 mb-4">{t.assetBlacklistDesc}</p>
 
           <form onSubmit={handleAddAssetBlacklist} className="flex gap-2 mb-4">
@@ -191,11 +210,11 @@ export const SettingsView: React.FC = () => {
               placeholder="e.g. SCAM.TOKEN"
               value={newBlackAsset}
               onChange={(e) => setNewBlackAsset(e.target.value)}
-              className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-2.5 text-xs font-mono uppercase focus:outline-none focus:border-blue-500"
+              className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-3.5 py-2 text-xs font-mono uppercase focus:outline-none focus:border-blue-500"
             />
             <button
               type="submit"
-              className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2.5 rounded-2xl text-xs transition cursor-pointer"
+              className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-2xl text-xs transition cursor-pointer"
             >
               {t.addBtn}
             </button>
@@ -207,7 +226,7 @@ export const SettingsView: React.FC = () => {
                 <span>{asset}</span>
                 <button
                   type="button"
-                  onClick={() => ddpPool.call(DDP_CONFIG.METHODS.TOGGLE_ASSET_VISIBILITY, asset, true)}
+                  onClick={() => handleRemoveAssetSetting(asset)}
                   className="text-red-500 font-bold ml-1 cursor-pointer hover:text-red-700"
                 >
                   ✕
