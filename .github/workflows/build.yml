@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
 
+env:
+  ACTIONS_ALLOW_UNSECURE_NODE_VERSION: true # 👈 消除 Node.js 20 降级警告
+
 jobs:
   build-desktop-linux:
     name: Build Linux Desktop (Tauri)
@@ -171,11 +174,12 @@ jobs:
     needs: [build-desktop-linux, build-desktop-windows, build-android-apks]
     runs-on: ubuntu-latest
     steps:
+      # 💡 正确做法：不使用 merge-across-directories，而是利用 download-artifact 自带的 merge-multiple: true 
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
           path: final-release-files
-          merge-across-directories: true # 👈 关键大招：自动把所有子目录下的文件聚合成平铺单层目录
+          merge-multiple: true
 
       - name: Display structure of downloaded files
         run: ls -la final-release-files
