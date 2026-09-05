@@ -7,7 +7,7 @@ on:
   workflow_dispatch: 
 
 permissions:
-  contents: write # 👈 显式声明 GitHub Actions 具有写 Release 的权限
+  contents: write
 
 jobs:
   build-desktop-linux:
@@ -41,7 +41,6 @@ jobs:
           find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-wallet_amd64.deb \;
           find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-artifacts/btsbots-wallet_amd64.AppImage \;
 
-          # 清理目标产物缓存
           rm -rf src-tauri/target/release/bundle/
 
           echo "=== 正在构建 Market Linux ==="
@@ -76,6 +75,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release-artifacts
 
+          # 备份原始的 tauri.conf.json，以便后续恢复
+          Copy-Item -Path "src-tauri\tauri.conf.json" -Destination "src-tauri\tauri.conf.json.bak" -Force
+
           echo "=== 正在构建 Wallet Windows 安装包 ==="
           npm run build:wallet
           npx tauri build
@@ -87,10 +89,11 @@ jobs:
           echo "=== 正在构建 Market Windows 安装包 ==="
           npm run build:market
           
-          # 💡 完美方案：原生通过双引号正确传递 --config 参数，并确保输出独立命名
-          npx tauri build -- --config "src-tauri/tauri.market.conf.json"
+          # 💡 终极稳妥方案：直接用 market 配置覆盖主 tauri.conf.json，完美绕过 Windows 命令行 CLI 参数解析坑
+          Copy-Item -Path "src-tauri\tauri.market.conf.json" -Destination "src-tauri\tauri.conf.json" -Force
+
+          npx tauri build
           
-          # 检查生成的 msi 并重命名
           $marketMsi = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi"
           if ($marketMsi) {
               $marketMsi | Copy-Item -Destination "release-artifacts\btsbots-market-setup.msi" -Force
@@ -98,6 +101,9 @@ jobs:
               Write-Error "Market MSI not found!"
               exit 1
           }
+
+          # 恢复原始主配置文件
+          Move-Item -Path "src-tauri\tauri.conf.json.bak" -Destination "src-tauri\tauri.conf.json" -Force
 
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
