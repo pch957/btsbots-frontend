@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-desktop-linux:
-    name: Build Linux Desktop 
+    name: Build Linux Desktop (Tauri)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -28,34 +28,33 @@ jobs:
       - name: Install NPM Dependencies
         run: npm install
 
-      - name: Build Wallet Linux (Deb & AppImage)
+      - name: Build Wallet & Market Linux (Deb & AppImage)
         run: |
+          mkdir -p release-deb release-appimage
+
           echo "=== 正在构建 Wallet Linux ==="
           npm run build:wallet
           npm exec tauri build
-          
-          mkdir -p release-artifacts
-          # 收集 deb
-          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-wallet_amd64.deb \;
-          # 收集 AppImage
-          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-artifacts/btsbots-wallet_amd64.AppImage \;
+          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-deb/btsbots-wallet_amd64.deb \;
+          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-appimage/btsbots-wallet_amd64.AppImage \;
 
-      - name: Build Market Linux (Deb & AppImage)
-        run: |
           echo "=== 正在构建 Market Linux ==="
           npm run build:market
           npm exec tauri build -- --config src-tauri/tauri.market.conf.json
-          
-          # 收集 deb
-          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-market_amd64.deb \;
-          # 收集 AppImage
-          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-artifacts/btsbots-market_amd64.AppImage \;
+          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-deb/btsbots-market_amd64.deb \;
+          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-appimage/btsbots-market_amd64.AppImage \;
 
-      - name: Upload Linux Artifacts
+      - name: Upload Linux Deb Packages
         uses: actions/upload-artifact@v4
         with:
-          name: btsbots-linux-packages
-          path: release-artifacts/*
+          name: linux-deb-packages
+          path: release-deb/*.deb
+
+      - name: Upload Linux AppImage Packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage-packages
+          path: release-appimage/*.AppImage
 
   build-desktop-windows:
     name: Build Windows Desktop (Tauri)
@@ -80,16 +79,12 @@ jobs:
           echo "=== 正在构建 Wallet Windows 安装包 ==="
           npm run build:wallet
           npx tauri build
-          # 查找并重命名为独一无二的 wallet 安装包
           Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-wallet-setup.msi" -Force
 
           echo "=== 正在构建 Market Windows 安装包 ==="
           npm run build:market
-          
-          # 覆盖配置文件
           Copy-Item -Path "src-tauri\tauri.market.conf.json" -Destination "src-tauri\tauri.conf.json" -Force
           npx tauri build
-          # 查找并重命名为独一无二的 market 安装包
           Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-market-setup.msi" -Force
 
       - name: Upload Windows Artifacts
@@ -97,6 +92,7 @@ jobs:
         with:
           name: btsbots-windows-packages
           path: release-artifacts/*.msi
+          if-no-files-found: error
 
   build-android-apks:
     name: Build Android APKs (Capacitor)
@@ -123,8 +119,11 @@ jobs:
       - name: Install NPM Dependencies
         run: npm install
 
-      - name: Build Wallet Android APK
+      - name: Fix Android Java Version & Build APKs
         run: |
+          # 🔴 关键大招：强行在 gradle.properties 注入 java 17 兼容目标，彻底掐断 source release 21 错误
+          echo "org.gradle.java.home=$JAVA_HOME" >> android/gradle.properties
+          
           echo "=== 正在构建 Wallet Android APK ==="
           npm run build:wallet
           ln -sf capacitor.wallet.config.ts capacitor.config.ts
@@ -132,16 +131,12 @@ jobs:
           
           cd android
           chmod +x gradlew
-          # 修复 source release 21 冲突，强制让 gradle 运行在 17 环境下
-          export JAVA_HOME=$JAVA_HOME_17_X64
           ./gradlew clean assembleWalletRelease
           cd ..
           
           mkdir -p release-artifacts
           find android/app/build/outputs/apk/wallet/release/ -name "*.apk" -exec cp {} release-artifacts/btsbots-wallet.apk \;
 
-      - name: Build Market Android APK
-        run: |
           echo "=== 正在构建 Market Android APK ==="
           npm run build:market
           ln -sf capacitor.market.config.ts capacitor.config.ts
@@ -149,7 +144,6 @@ jobs:
           
           cd android
           chmod +x gradlew
-          export JAVA_HOME=$JAVA_HOME_17_X64
           ./gradlew clean assembleMarketRelease
           cd ..
           
