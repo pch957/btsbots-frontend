@@ -6,6 +6,9 @@ on:
       - 'v*.*.*'  
   workflow_dispatch: 
 
+permissions:
+  contents: write # 👈 显式声明 GitHub Actions 具有写 Release 的权限
+
 jobs:
   build-desktop-linux:
     name: Build Linux Desktop (Tauri)
@@ -30,31 +33,28 @@ jobs:
 
       - name: Build Wallet & Market Linux (Deb & AppImage)
         run: |
-          mkdir -p release-deb release-appimage
+          mkdir -p release-artifacts
 
           echo "=== 正在构建 Wallet Linux ==="
           npm run build:wallet
           npm exec tauri build
-          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-deb/btsbots-wallet_amd64.deb \;
-          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-appimage/btsbots-wallet_amd64.AppImage \;
+          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-wallet_amd64.deb \;
+          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-artifacts/btsbots-wallet_amd64.AppImage \;
+
+          # 清理目标产物缓存
+          rm -rf src-tauri/target/release/bundle/
 
           echo "=== 正在构建 Market Linux ==="
           npm run build:market
           npm exec tauri build -- --config src-tauri/tauri.market.conf.json
-          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-deb/btsbots-market_amd64.deb \;
-          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-appimage/btsbots-market_amd64.AppImage \;
+          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-market_amd64.deb \;
+          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-artifacts/btsbots-market_amd64.AppImage \;
 
-      - name: Upload Linux Deb Packages
+      - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-deb-packages
-          path: release-deb/*.deb
-
-      - name: Upload Linux AppImage Packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-appimage-packages
-          path: release-appimage/*.AppImage
+          name: all-desktop-linux
+          path: release-artifacts/*
 
   build-desktop-windows:
     name: Build Windows Desktop (Tauri)
@@ -74,33 +74,35 @@ jobs:
 
       - name: Build Wallet & Market Windows Installers
         run: |
-          mkdir release-artifacts
+          New-Item -ItemType Directory -Force -Path release-artifacts
 
           echo "=== 正在构建 Wallet Windows 安装包 ==="
           npm run build:wallet
           npx tauri build
           Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-wallet-setup.msi" -Force
 
+          # 清理目标产物缓存
+          Remove-Item -Recurse -Force "src-tauri\target\release\bundle" -ErrorAction SilentlyContinue
+
           echo "=== 正在构建 Market Windows 安装包 ==="
           npm run build:market
           
-          # 💡 核心修复：覆盖配置并用 PowerShell 动态修改 identifier，防止 Windows 识别冲突
-          Copy-Item -Path "src-tauri\tauri.market.conf.json" -Destination "src-tauri\tauri.conf.json" -Force
+          # 💡 完美方案：原生通过双引号正确传递 --config 参数，并确保输出独立命名
+          npx tauri build -- --config "src-tauri/tauri.market.conf.json"
           
-          # 读取 tauri.conf.json 并把 identifier 替换为 market 专属的包名
-          $configPath = "src-tauri\tauri.conf.json"
-          $configContent = Get-Content $configPath -Raw | ConvertFrom-Json
-          $configContent.identifier = "com.btsbots.market"
-          $configContent.productName = "btsbots-market"
-          $configContent | ConvertTo-Json -Depth 100 | Set-Content $configPath
-
-          npx tauri build
-          Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-market-setup.msi" -Force
+          # 检查生成的 msi 并重命名
+          $marketMsi = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi"
+          if ($marketMsi) {
+              $marketMsi | Copy-Item -Destination "release-artifacts\btsbots-market-setup.msi" -Force
+          } else {
+              Write-Error "Market MSI not found!"
+              exit 1
+          }
 
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: btsbots-windows-packages
+          name: all-desktop-windows
           path: release-artifacts/*.msi
           if-no-files-found: error
 
@@ -121,7 +123,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
-          java-version: '21' # 🔴 升级到 JDK 21 以匹配 Capacitor 7 编译要求
+          java-version: '21'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -131,9 +133,10 @@ jobs:
 
       - name: Fix Android Java Version & Build APKs
         run: |
-          # 强行将 JDK 21 绑定写入 gradle.properties
           echo "org.gradle.java.home=$JAVA_HOME" >> android/gradle.properties
           
+          mkdir -p release-artifacts
+
           echo "=== 正在构建 Wallet Android APK ==="
           npm run build:wallet
           ln -sf capacitor.wallet.config.ts capacitor.config.ts
@@ -143,12 +146,8 @@ jobs:
           chmod +x gradlew
           ./gradlew clean assembleWalletRelease
           cd ..
-          
-          mkdir -p release-artifacts
           find android/app/build/outputs/apk/wallet/release/ -name "*.apk" -exec cp {} release-artifacts/btsbots-wallet.apk \;
 
-      - name: Build Market Android APK
-        run: |
           echo "=== 正在构建 Market Android APK ==="
           npm run build:market
           ln -sf capacitor.market.config.ts capacitor.config.ts
@@ -158,13 +157,12 @@ jobs:
           chmod +x gradlew
           ./gradlew clean assembleMarketRelease
           cd ..
-          
           find android/app/build/outputs/apk/market/release/ -name "*.apk" -exec cp {} release-artifacts/btsbots-market.apk \;
 
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: btsbots-android-packages
+          name: all-android-apks
           path: release-artifacts/*.apk
 
   create-github-release:
@@ -175,16 +173,15 @@ jobs:
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: all-artifacts
-          merge-across-directories: true
+          path: downloaded-artifacts
 
       - name: Display structure of downloaded files
-        run: ls -R all-artifacts
+        run: ls -R downloaded-artifacts
 
       - name: Release to GitHub
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            all-artifacts/*
+            download-artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
