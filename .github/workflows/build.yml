@@ -3,8 +3,8 @@ name: BTSBots Multi-Platform CI/CD Build
 on:
   push:
     tags:
-      - 'v*.*.*'  # 触发条件：推送 v*.*.* 标签时自动触发
-  workflow_dispatch: # 支持后台手动触发
+      - 'v*.*.*'  
+  workflow_dispatch: 
 
 jobs:
   build-desktop-linux:
@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install System Dependencies (Linux Tauri)
@@ -26,21 +26,20 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
       - name: Install NPM Dependencies
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build Wallet & Market Linux Deb
         run: |
           echo "=== 正在构建 Wallet Linux Deb ==="
           npm run build:wallet
-          npm exec tauri build || npx tauri build
+          npm exec tauri build
           
           mkdir -p release-artifacts
-          # 寻找编译出的 deb 包并重命名
           find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-wallet_amd64.deb \;
 
           echo "=== 正在构建 Market Linux Deb ==="
           npm run build:market
-          npm exec tauri build -- --config src-tauri/tauri.market.conf.json || npx tauri build -- --config src-tauri/tauri.market.conf.json
+          npm exec tauri build -- --config src-tauri/tauri.market.conf.json
           
           find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-market_amd64.deb \;
 
@@ -60,11 +59,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install NPM Dependencies
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build Wallet & Market Windows Installers
         run: |
@@ -73,12 +72,14 @@ jobs:
           npx tauri build
           
           mkdir release-artifacts
-          # 移动 MSI 文件
           Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-wallet-setup.msi"
 
           echo "=== 正在构建 Market Windows 安装包 ==="
           npm run build:market
-          npx tauri build -- --config src-tauri/tauri.market.conf.json
+          
+          # 💡 Windows 下为了彻底避免 CLI 参数解析错误，我们临时把市场配置文件覆盖为主配置
+          Copy-Item -Path "src-tauri\tauri.market.conf.json" -Destination "src-tauri\tauri.conf.json" -Force
+          npx tauri build
           
           Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-market-setup.msi"
 
@@ -98,7 +99,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # 🔴 强制升级到 Node.js 22，满足 Capacitor CLI >=22 要求
           cache: 'npm'
 
       - name: Setup Java (JDK 17)
@@ -111,7 +112,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install NPM Dependencies
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build Wallet Android APK
         run: |
