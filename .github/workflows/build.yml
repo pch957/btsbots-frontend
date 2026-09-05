@@ -1,0 +1,113 @@
+name: "✨ 全端多目标矩阵爆破编译器"
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ========================================================
+  # 1. 桌面端编译 (Windows & Linux)
+  # ========================================================
+  build-desktop:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, ubuntu-24.04]
+        app_mode: [wallet, market]
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: 📥 拉取代码仓库
+        uses: actions/checkout@v4
+
+      - name: ⚙️ 初始化 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: ⚙️ 初始化 Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 🐧 仅 Linux 环境：安装 WebKitGTK 系统底层依赖
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: 📦 安装前端依赖包
+        run: npm install
+
+      - name: 🚀 步骤一：执行前端多端分流构建
+        env:
+          APP_MODE: ${{ matrix.app_mode }}
+        run: |
+          if [ "${{ matrix.app_mode }}" = "wallet" ]; then
+            npm run build:wallet
+          else
+            npm run build:market
+          fi
+        shell: bash
+
+      - name: 🧱 步骤二：调用 Tauri 编译桌面安装包并自动发布
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          createRelease: true
+          args: ${{ matrix.app_mode == 'market' && '--config src-tauri/tauri.market.conf.json' || '' }}
+
+  # ========================================================
+  # 2. 移动端编译 (Android 钱包 & 交易所)
+  # ========================================================
+  build-android:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 拉取代码仓库
+        uses: actions/checkout@v4
+
+      - name: ⚙️ 初始化 Node.js 与 Java 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: ⚙️ 初始化 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 安装前端依赖包
+        run: npm install
+
+      # ---- 完美还原你的 choice 3: 编译 Android 钱包 ----
+      - name: 📱 编译并生成 [Wallet 钱包] Android APK
+        run: |
+          npm run build:wallet
+          ln -sf capacitor.wallet.config.ts capacitor.config.ts
+          npm exec cap sync android
+          cd android && ./gradlew clean assembleWalletRelease
+
+      # ---- 完美还原你的 choice 4: 编译 Android 交易所 ----
+      - name: 📱 编译并生成 [Market 交易所] Android APK
+        run: |
+          npm run build:market
+          ln -sf capacitor.market.config.ts capacitor.config.ts
+          npm exec cap sync android
+          cd android && ./gradlew clean assembleMarketRelease
+
+      # ---- 自动将生成的两个特定渠道 APK 上传到 GitHub Release ----
+      - name: 📤 上传 Android APK 产物至 Release
+        uses: softprops/action-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            android/app/build/outputs/apk/wallet/release/app-wallet-release.apk
+            android/app/build/outputs/apk/market/release/app-market-release.apk
