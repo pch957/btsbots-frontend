@@ -83,7 +83,17 @@ jobs:
 
           echo "=== 正在构建 Market Windows 安装包 ==="
           npm run build:market
+          
+          # 💡 核心修复：覆盖配置并用 PowerShell 动态修改 identifier，防止 Windows 识别冲突
           Copy-Item -Path "src-tauri\tauri.market.conf.json" -Destination "src-tauri\tauri.conf.json" -Force
+          
+          # 读取 tauri.conf.json 并把 identifier 替换为 market 专属的包名
+          $configPath = "src-tauri\tauri.conf.json"
+          $configContent = Get-Content $configPath -Raw | ConvertFrom-Json
+          $configContent.identifier = "com.btsbots.market"
+          $configContent.productName = "btsbots-market"
+          $configContent | ConvertTo-Json -Depth 100 | Set-Content $configPath
+
           npx tauri build
           Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-market-setup.msi" -Force
 
@@ -107,11 +117,11 @@ jobs:
           node-version: 22 
           cache: 'npm'
 
-      - name: Setup Java (JDK 17)
+      - name: Setup Java (JDK 21)
         uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21' # 🔴 升级到 JDK 21 以匹配 Capacitor 7 编译要求
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -121,7 +131,7 @@ jobs:
 
       - name: Fix Android Java Version & Build APKs
         run: |
-          # 🔴 关键大招：强行在 gradle.properties 注入 java 17 兼容目标，彻底掐断 source release 21 错误
+          # 强行将 JDK 21 绑定写入 gradle.properties
           echo "org.gradle.java.home=$JAVA_HOME" >> android/gradle.properties
           
           echo "=== 正在构建 Wallet Android APK ==="
@@ -137,6 +147,8 @@ jobs:
           mkdir -p release-artifacts
           find android/app/build/outputs/apk/wallet/release/ -name "*.apk" -exec cp {} release-artifacts/btsbots-wallet.apk \;
 
+      - name: Build Market Android APK
+        run: |
           echo "=== 正在构建 Market Android APK ==="
           npm run build:market
           ln -sf capacitor.market.config.ts capacitor.config.ts
