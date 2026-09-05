@@ -75,7 +75,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release-artifacts
 
-          # 备份原始的 tauri.conf.json，以便后续恢复
           Copy-Item -Path "src-tauri\tauri.conf.json" -Destination "src-tauri\tauri.conf.json.bak" -Force
 
           echo "=== 正在构建 Wallet Windows 安装包 ==="
@@ -83,13 +82,10 @@ jobs:
           npx tauri build
           Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-wallet-setup.msi" -Force
 
-          # 清理目标产物缓存
           Remove-Item -Recurse -Force "src-tauri\target\release\bundle" -ErrorAction SilentlyContinue
 
           echo "=== 正在构建 Market Windows 安装包 ==="
           npm run build:market
-          
-          # 💡 终极稳妥方案：直接用 market 配置覆盖主 tauri.conf.json，完美绕过 Windows 命令行 CLI 参数解析坑
           Copy-Item -Path "src-tauri\tauri.market.conf.json" -Destination "src-tauri\tauri.conf.json" -Force
 
           npx tauri build
@@ -102,7 +98,6 @@ jobs:
               exit 1
           }
 
-          # 恢复原始主配置文件
           Move-Item -Path "src-tauri\tauri.conf.json.bak" -Destination "src-tauri\tauri.conf.json" -Force
 
       - name: Upload Windows Artifacts
@@ -179,15 +174,16 @@ jobs:
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: downloaded-artifacts
+          path: final-release-files
+          merge-across-directories: true # 👈 关键大招：自动把所有子目录下的文件聚合成平铺单层目录
 
       - name: Display structure of downloaded files
-        run: ls -R downloaded-artifacts
+        run: ls -la final-release-files
 
       - name: Release to GitHub
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            download-artifacts/**/*
+            final-release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
