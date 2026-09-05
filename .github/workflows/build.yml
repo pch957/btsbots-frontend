@@ -3,8 +3,8 @@ name: BTSBots Multi-Platform CI/CD Build
 on:
   push:
     tags:
-      - 'v*.*.*'  # 触发条件：当推送形如 v1.0.0 的 git tag 时自动触发
-  workflow_dispatch: # 支持在 GitHub 后台手动点击按钮触发
+      - 'v*.*.*'  # 触发条件：推送 v*.*.* 标签时自动触发
+  workflow_dispatch: # 支持后台手动触发
 
 jobs:
   build-desktop-linux:
@@ -17,29 +17,32 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'npm'
 
       - name: Install System Dependencies (Linux Tauri)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
       - name: Install NPM Dependencies
-        run: npm install
+        run: npm ci || npm install
 
       - name: Build Wallet & Market Linux Deb
         run: |
-          # 1. Wallet 版
+          echo "=== 正在构建 Wallet Linux Deb ==="
           npm run build:wallet
-          npm exec tauri build
+          npm exec tauri build || npx tauri build
+          
           mkdir -p release-artifacts
-          mv src-tauri/target/release/bundle/deb/*.deb release-artifacts/btsbots-wallet_amd64.deb
+          # 寻找编译出的 deb 包并重命名
+          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-wallet_amd64.deb \;
 
-          # 2. Market 版
+          echo "=== 正在构建 Market Linux Deb ==="
           npm run build:market
-          npm exec tauri build -- --config src-tauri/tauri.market.conf.json
-          mv src-tauri/target/release/bundle/deb/*.deb release-artifacts/btsbots-market_amd64.deb
+          npm exec tauri build -- --config src-tauri/tauri.market.conf.json || npx tauri build -- --config src-tauri/tauri.market.conf.json
+          
+          find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-market_amd64.deb \;
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
@@ -57,25 +60,27 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'npm'
 
       - name: Install NPM Dependencies
-        run: npm install
+        run: npm ci || npm install
 
       - name: Build Wallet & Market Windows Installers
         run: |
-          # 1. Wallet 版
+          echo "=== 正在构建 Wallet Windows 安装包 ==="
           npm run build:wallet
           npx tauri build
+          
           mkdir release-artifacts
-          # Tauri 在 Windows 默认产出 msi / exe，将其复制重命名以便识别
-          move src-tauri\target\release\bundle\msi\*.msi release-artifacts\btsbots-wallet-setup.msi
+          # 移动 MSI 文件
+          Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-wallet-setup.msi"
 
-          # 2. Market 版
+          echo "=== 正在构建 Market Windows 安装包 ==="
           npm run build:market
           npx tauri build -- --config src-tauri/tauri.market.conf.json
-          move src-tauri\target\release\bundle\msi\*.msi release-artifacts\btsbots-market-setup.msi
+          
+          Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" | Copy-Item -Destination "release-artifacts\btsbots-market-setup.msi"
 
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
@@ -93,11 +98,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'npm'
 
       - name: Setup Java (JDK 17)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -106,30 +111,36 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install NPM Dependencies
-        run: npm install
+        run: npm ci || npm install
 
       - name: Build Wallet Android APK
         run: |
+          echo "=== 正在构建 Wallet Android APK ==="
           npm run build:wallet
           ln -sf capacitor.wallet.config.ts capacitor.config.ts
           npx cap sync android
+          
           cd android
           chmod +x gradlew
           ./gradlew clean assembleWalletRelease
           cd ..
+          
           mkdir -p release-artifacts
-          mv android/app/build/outputs/apk/wallet/release/app-wallet-release.apk release-artifacts/btsbots-wallet.apk
+          find android/app/build/outputs/apk/wallet/release/ -name "*.apk" -exec cp {} release-artifacts/btsbots-wallet.apk \;
 
       - name: Build Market Android APK
         run: |
+          echo "=== 正在构建 Market Android APK ==="
           npm run build:market
           ln -sf capacitor.market.config.ts capacitor.config.ts
           npx cap sync android
+          
           cd android
           chmod +x gradlew
           ./gradlew clean assembleMarketRelease
           cd ..
-          mv android/app/build/outputs/apk/market/release/app-market-release.apk release-artifacts/btsbots-market.apk
+          
+          find android/app/build/outputs/apk/market/release/ -name "*.apk" -exec cp {} release-artifacts/btsbots-market.apk \;
 
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
