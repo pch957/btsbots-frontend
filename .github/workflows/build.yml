@@ -9,12 +9,9 @@ on:
 permissions:
   contents: write
 
-env:
-  ACTIONS_ALLOW_UNSECURE_NODE_VERSION: true # 👈 消除 Node.js 20 降级警告
-
 jobs:
   build-desktop-linux:
-    name: Build Linux Desktop (Tauri)
+    name: Build Linux Desktop (Tauri Deb)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -34,29 +31,27 @@ jobs:
       - name: Install NPM Dependencies
         run: npm install
 
-      - name: Build Wallet & Market Linux (Deb & AppImage)
+      - name: Build Wallet & Market Linux (Deb Only)
         run: |
           mkdir -p release-artifacts
 
-          echo "=== 正在构建 Wallet Linux ==="
+          echo "=== 正在构建 Wallet Linux Deb ==="
           npm run build:wallet
           npm exec tauri build
           find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-wallet_amd64.deb \;
-          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-artifacts/btsbots-wallet_amd64.AppImage \;
 
           rm -rf src-tauri/target/release/bundle/
 
-          echo "=== 正在构建 Market Linux ==="
+          echo "=== 正在构建 Market Linux Deb ==="
           npm run build:market
           npm exec tauri build -- --config src-tauri/tauri.market.conf.json
           find src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} release-artifacts/btsbots-market_amd64.deb \;
-          find src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} release-artifacts/btsbots-market_amd64.AppImage \;
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: all-desktop-linux
-          path: release-artifacts/*
+          path: release-artifacts/*.deb
 
   build-desktop-windows:
     name: Build Windows Desktop (Tauri)
@@ -174,7 +169,6 @@ jobs:
     needs: [build-desktop-linux, build-desktop-windows, build-android-apks]
     runs-on: ubuntu-latest
     steps:
-      # 💡 正确做法：不使用 merge-across-directories，而是利用 download-artifact 自带的 merge-multiple: true 
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
